@@ -1,0 +1,253 @@
+/* ============================
+   PROGRESS BAR CIRCULAR CON ETIQUETAS
+   ============================ */
+
+.checkout-steps {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.step-item {
+  text-align: center;
+  flex: 1;
+  position: relative;
+}
+
+/* Línea centrada entre los círculos */
+.step-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: calc(50% + 18px);
+  width: calc(100% - 36px);
+  height: 2px;
+  background: #e0e0e0;
+  transform: translateY(-50%);
+  z-index: 0;
+}
+
+.step-item.active:not(:last-child)::after {
+  background: #007bff;
+}
+
+/* Círculos */
+.circle {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #555;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 6px;
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+  transition: all 0.3s ease;
+}
+
+.step-item.active .circle {
+  background: #007bff;
+  color: #fff;
+}
+
+/* Ícono check */
+.circle i {
+  font-size: 1.1rem;
+}
+
+/* Etiquetas */
+.step-item span {
+  font-size: 0.9rem;
+  color: #777;
+  font-weight: 400;
+}
+
+.step-item span.current {
+  color: #000;
+  font-weight: 600;
+}
+
+/* ============================
+   RESPONSIVE
+   ============================ */
+@media (max-width: 576px) {
+  .circle {
+    width: 30px;
+    height: 30px;
+    font-size: 0.9rem;
+  }
+
+  .step-item span {
+    font-size: 0.8rem;
+  }
+
+  .step-item:not(:last-child)::after {
+    left: calc(50% + 15px);
+    width: calc(100% - 30px);
+  }
+}
+
+/* Card principal */
+.checkout-card {
+  border-radius: 20px;
+  padding: 32px;
+  background: #ffffff;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+  animation: fadeIn 0.4s ease;
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Títulos */
+.checkout-title {
+  font-weight: 700;
+  font-size: 1.8rem;
+  margin-bottom: 1.2rem;
+  animation: slideUp 0.4s ease;
+  color: #1a1a1a;
+}
+
+/* Inputs */
+.checkout-input {
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 1rem;
+  border: 1px solid #dcdcdc;
+  transition: all 0.2s ease;
+}
+
+.checkout-input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0,123,255,0.25);
+}
+
+/* Botones */
+.checkout-btn {
+  padding: 14px;
+  font-size: 1.1rem;
+  border-radius: 14px;
+  font-weight: 600;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.checkout-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+
+.checkout-btn-primary {
+  background-color: #007bff;
+  color: white;
+}
+
+.checkout-btn-success {
+  background-color: #28a745;
+  color: white;
+}
+
+.checkout-btn-secondary {
+  background-color: #6c757d;
+  color: white;
+}
+
+/* Botones de disponibilidad */
+.slot-btn {
+  padding: 14px;
+  border-radius: 14px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.slot-btn:hover {
+  background-color: #007bff;
+  color: white;
+}
+
+/* Iconos */
+.icon-left {
+  margin-right: 10px;
+  font-size: 1.3rem;
+}
+
+.icon-right {
+  margin-left: 10px;
+  font-size: 1.3rem;
+}
+
+/* ============================
+   MOBILE ADVANCED (Figma)
+   ============================ */
+
+@media (max-width: 576px) {
+
+  .checkout-card {
+    padding: 22px;
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.06);
+  }
+
+  .checkout-title {
+    font-size: 1.45rem;
+    margin-bottom: 1rem;
+  }
+
+  .checkout-input {
+    padding: 12px;
+    font-size: 0.95rem;
+  }
+
+  .checkout-btn {
+    padding: 12px;
+    font-size: 1rem;
+    border-radius: 12px;
+  }
+
+  .slot-btn {
+    padding: 12px;
+    font-size: 0.95rem;
+  }
+
+  /* Espaciado vertical optimizado */
+  .container {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  /* Mejor interacción táctil */
+  button, input {
+    min-height: 48px;
+  }
+
+  /* Iconos más pequeños */
+  .icon-left, .icon-right {
+    font-size: 1.1rem;
+  }
+}
+
+/* ============================
+   TABLET
+   ============================ */
+
+@media (min-width: 577px) and (max-width: 768px) {
+  .checkout-card {
+    padding: 26px;
+  }
+
+  .checkout-title {
+    font-size: 1.6rem;
+  }
+}

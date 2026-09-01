@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 from api.models import db, User, ProviderProfile, ProviderSchedule, ProviderPortfolio
-from api.models import Service, ServiceAvailability, Reservation, Transaction, Review
+from api.models import Service, ServiceAvailability, Reservation, Transaction, Review, Category, Subcategory
 
 api = Blueprint('api', __name__)
 
@@ -98,21 +98,23 @@ def delete_user():
 # ============================================================
 
 @api.route('/provider', methods=['POST'])
-def create_provider_profile():
+def create_provider():
     data = request.get_json()
 
-    profile = ProviderProfile(
+    provider = ProviderProfile(
         user_id=data["user_id"],
-        bio=data.get("bio"),
-        coverage_area=data.get("coverage_area"),
+        bio=data["bio"],
+        coverage_area=data["coverage_area"],
         is_home_service=data.get("is_home_service", False)
     )
 
-    db.session.add(profile)
+    db.session.add(provider)
     db.session.commit()
 
-    return jsonify({"msg": "Perfil profesional creado", "id": profile.id})
-
+    return jsonify({
+        "msg": "Perfil profesional creado",
+        "id": provider.id
+    }), 201
 
 @api.route('/provider/<int:id>', methods=['GET'])
 def get_provider_profile(id):
@@ -214,6 +216,63 @@ def delete_schedule(id, day):
     db.session.commit()
 
     return jsonify({"msg": "Horario eliminado"})
+
+# ============================================================
+# 🔹 CATEGORY
+# ============================================================
+
+@api.route('/category', methods=['POST'])
+def create_category():
+    data = request.get_json()
+
+    category = Category(
+        name=data["name"],
+        description=data.get("description")
+    )
+
+    db.session.add(category)
+    db.session.commit()
+
+    return jsonify({"msg": "Categoría creada", "id": category.id}), 201
+
+
+@api.route('/category', methods=['GET'])
+def get_categories():
+    categories = Category.query.all()
+    return jsonify([{
+        "id": c.id,
+        "name": c.name,
+        "description": c.description
+    } for c in categories])
+
+
+# ============================================================
+# 🔹 SUBCATEGORY
+# ============================================================
+
+@api.route('/subcategory', methods=['POST'])
+def create_subcategory():
+    data = request.get_json()
+
+    subcategory = Subcategory(
+        category_id=data["category_id"],
+        name=data["name"]
+    )
+
+    db.session.add(subcategory)
+    db.session.commit()
+
+    return jsonify({"msg": "Subcategoría creada", "id": subcategory.id}), 201
+
+
+@api.route('/subcategory', methods=['GET'])
+def get_subcategories():
+    subcategories = Subcategory.query.all()
+    return jsonify([{
+        "id": s.id,
+        "category_id": s.category_id,
+        "name": s.name
+    } for s in subcategories])
 
 
 # ============================================================
@@ -355,7 +414,9 @@ def create_reservation():
     db.session.add(reservation)
     db.session.commit()
 
-    return jsonify({"msg": "Reserva creada", "id": reservation.id})
+    return jsonify({"msg": "Reserva creada",
+                    "reservation_id": reservation.id
+                    }), 201
 
 
 @api.route('/reservations/<int:id>', methods=['GET'])
@@ -366,13 +427,28 @@ def get_reservation(id):
 
 @api.route('/reservations/<int:id>', methods=['PUT'])
 def update_reservation(id):
-    reservation = Reservation.query.get(id)
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    reservation.status = data.get("status", reservation.status)
+        if not data or "status" not in data:
+            return jsonify({"error": "Falta el campo 'status'"}), 400
 
-    db.session.commit()
-    return jsonify({"msg": "Reserva actualizada"})
+        reservation = Reservation.query.get(id)
+        if not reservation:
+            return jsonify({"error": "Reserva no encontrada"}), 404
+
+        reservation.status = data["status"]
+        db.session.commit()
+
+        return jsonify({
+            "msg": "Reserva actualizada",
+            "reservation_id": reservation.id,
+            "status": reservation.status
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 @api.route('/user/<int:id>/reservations', methods=['GET'])
@@ -393,19 +469,57 @@ def get_reservations_by_provider(id):
 
 @api.route('/transactions', methods=['POST'])
 def create_transaction():
-    data = request.get_json()
+    try:
+        data = request.get_json()
 
-    tx = Transaction(
-        reservation_id=data["reservation_id"],
-        amount=data["amount"],
-        status="pending"
-    )
+        if not data or "reservation_id" not in data or "amount" not in data:
+            return jsonify({"error": "Datos incompletos"}), 400
 
-    db.session.add(tx)
-    db.session.commit()
+        tx = Transaction(
+            reservation_id=data["reservation_id"],
+            amount=data["amount"],
+            status="pending",
+            transaction_date=datetime.utcnow()  # opcional
+        )
 
-    return jsonify({"msg": "Transacción creada"})
+        db.session.add(tx)
+        db.session.commit()
 
+        return jsonify({
+            "msg": "Transacción creada",
+            "transaction_id": tx.id
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
+@api.route('/transactions/<int:id>', methods=['PUT'])
+def update_transaction(id):
+    try:
+        data = request.get_json()
+
+        if not data or "status" not in data:
+            return jsonify({"error": "Falta el campo 'status'"}), 400
+
+        tx = Transaction.query.get(id)
+        if not tx:
+            return jsonify({"error": "Transacción no encontrada"}), 404
+
+        tx.status = data["status"]
+        db.session.commit()
+
+        return jsonify({
+            "msg": "Transacción actualizada",
+            "transaction_id": tx.id,
+            "status": tx.status
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+    
 
 @api.route('/transactions/<int:id>', methods=['GET'])
 def get_transaction(id):
