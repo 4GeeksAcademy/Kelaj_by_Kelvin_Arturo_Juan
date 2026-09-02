@@ -1,13 +1,15 @@
 /* ============================
    PROGRESS BAR CIRCULAR CON ETIQUETAS
-   ============================ */
-
+   ============================= */
+   
 .checkout-steps {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start; /* antes: center, ya no hace falta */
   margin-bottom: 1.5rem;
   position: relative;
+  --circle-size: 36px;
+  --line-gap: 8px;
 }
 
 .step-item {
@@ -16,16 +18,15 @@
   position: relative;
 }
 
-/* Línea centrada entre los círculos */
+/* Línea centrada respecto al CÍRCULO, no al step-item completo */
 .step-item:not(:last-child)::after {
   content: "";
   position: absolute;
-  top: 50%;
-  left: calc(50% + 18px);
-  width: calc(100% - 36px);
+  top: calc(var(--circle-size) / 2);
+  left: calc(50% + var(--circle-size) / 2 + var(--line-gap));
+  width: calc(100% - var(--circle-size) - (var(--line-gap) * 2));
   height: 2px;
   background: #e0e0e0;
-  transform: translateY(-50%);
   z-index: 0;
 }
 
@@ -35,8 +36,8 @@
 
 /* Círculos */
 .circle {
-  width: 36px;
-  height: 36px;
+  width: var(--circle-size);
+  height: var(--circle-size);
   border-radius: 50%;
   background: #e0e0e0;
   color: #555;
@@ -55,12 +56,11 @@
   color: #fff;
 }
 
-/* Ícono check */
-.circle i {
-  font-size: 1.1rem;
+.circle svg {
+  width: 16px;
+  height: 16px;
 }
 
-/* Etiquetas */
 .step-item span {
   font-size: 0.9rem;
   color: #777;
@@ -72,23 +72,14 @@
   font-weight: 600;
 }
 
-/* ============================
-   RESPONSIVE
-   ============================ */
 @media (max-width: 576px) {
-  .circle {
-    width: 30px;
-    height: 30px;
-    font-size: 0.9rem;
+  .checkout-steps {
+    --circle-size: 30px;
+    --line-gap: 6px;
   }
 
   .step-item span {
     font-size: 0.8rem;
-  }
-
-  .step-item:not(:last-child)::after {
-    left: calc(50% + 15px);
-    width: calc(100% - 30px);
   }
 }
 

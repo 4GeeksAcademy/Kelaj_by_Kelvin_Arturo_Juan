@@ -122,6 +122,11 @@ export default function Checkout({ serviceId }) {
   // ============================
   // CONTAINER PREMIUM
   // ============================
+  const CheckIcon = () => (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
   const Container = ({ children }) => (
     <div className="container py-4">
       <div className="row justify-content-center">
@@ -132,11 +137,11 @@ export default function Checkout({ serviceId }) {
 
             {/* BOTÓN DARK MODE */}
             <div className="text-end mb-3">
-              <button 
+              <button
                 className="btn btn-sm btn-outline-secondary"
                 onClick={() => setDarkMode(!darkMode)}
               >
-                {darkMode ? "Modo claro" : "Modo oscuro"} 
+                {darkMode ? "Modo claro" : "Modo oscuro"}
                 <i className={`bi ${darkMode ? "bi-sun" : "bi-moon"} ms-2`}></i>
               </button>
             </div>
@@ -145,28 +150,28 @@ export default function Checkout({ serviceId }) {
             <div className="checkout-steps mb-4">
               <div className={`step-item ${step >= 1 ? "active" : ""}`}>
                 <div className="circle">
-                  {step > 1 ? <i className="bi bi-check"></i> : "1"}
+                  {step > 1 ? <CheckIcon /> : "1"}
                 </div>
                 <span className={step === 1 ? "current" : ""}>Servicio</span>
               </div>
 
               <div className={`step-item ${step >= 2 ? "active" : ""}`}>
                 <div className="circle">
-                  {step > 2 ? <i className="bi bi-check"></i> : "2"}
+                  {step > 2 ? <CheckIcon /> : "2"}
                 </div>
                 <span className={step === 2 ? "current" : ""}>Fecha y hora</span>
               </div>
 
               <div className={`step-item ${step >= 3 ? "active" : ""}`}>
                 <div className="circle">
-                  {step > 3 ? <i className="bi bi-check"></i> : "3"}
+                  {step > 3 ? <CheckIcon /> : "3"}
                 </div>
                 <span className={step === 3 ? "current" : ""}>Datos</span>
               </div>
 
               <div className={`step-item ${step >= 4 ? "active" : ""}`}>
                 <div className="circle">
-                  {step > 4 ? <i className="bi bi-check"></i> : "4"}
+                  {step > 4 ? <CheckIcon /> : "4"}
                 </div>
                 <span className={step === 4 ? "current" : ""}>Confirmación</span>
               </div>
