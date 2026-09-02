@@ -8,6 +8,8 @@ import { Home } from "./pages/Home";
 import { Single } from "./pages/Single";
 import { Demo } from "./pages/Demo";
 import { Privacy } from "./pages/Privacy";
+import { Register } from "./pages/Register";
+import { Login } from "./pages/Login";
 
 export const router = createBrowserRouter(
     createRoutesFromElements(
@@ -16,6 +18,8 @@ export const router = createBrowserRouter(
         <Route path="/single/:theId" element={ <Single />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/login" element={<Login />} />
       </Route>
     )
 );
