@@ -1,65 +1,100 @@
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import String, Boolean, Column, Table, ForeignKey, Text, Numeric, Date, Time, Integer, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, Integer, Float, Boolean, Text, Date, Time, DateTime, ForeignKey
-from datetime import datetime
-from typing import List
 
 db = SQLAlchemy()
 
-# -------------------- USER --------------------
+followers_association = Table(
+    'followers_association',
+    db.metadata,
+    Column('follower_id', Integer, ForeignKey('users.id'), primary_key=True),
+    Column('followed_id', Integer, ForeignKey('users.id'), primary_key=True)
+)
+
+payment_methods_association = Table(
+    'provider_payment_methods',
+    db.metadata,
+    Column('provider_id', Integer, ForeignKey('provider_profile.id'), primary_key=True),
+    Column('payment_method_id', Integer, ForeignKey('payment_methods.id'), primary_key=True)
+)
+
+
 class User(db.Model):
-    __tablename__ = "user"
+    __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(60), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(60), nullable=False)
+    cover_image: Mapped[str] = mapped_column(String(255), nullable=True)
+    profile_image: Mapped[str] = mapped_column(String(255), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    role: Mapped[str] = mapped_column(String(20))  # client, professional, dual
-    city: Mapped[str] = mapped_column(String(120), nullable=True)
-    phone: Mapped[str] = mapped_column(String(50), nullable=True)
-    verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    is_active: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=True)
+    is_provider: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
+    date_created: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
 
-    provider_profile: Mapped["ProviderProfile"] = relationship(back_populates="user", uselist=False)
+    followers: Mapped[list["User"]] = relationship(
+        secondary=followers_association,
+        primaryjoin="User.id == followers_association.c.followed_id",
+        secondaryjoin="User.id == followers_association.c.follower_id",
+        back_populates="following"
+    )
+    following: Mapped[list["User"]] = relationship(
+        secondary=followers_association,
+        primaryjoin="User.id == followers_association.c.follower_id",
+        secondaryjoin="User.id == followers_association.c.followed_id",
+        back_populates="followers"
+    )
+
+    provider_profile: Mapped["Provider_Profile"] = relationship(back_populates="user", uselist=False)
     reservations: Mapped[list["Reservation"]] = relationship(back_populates="client")
+
 
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
             "email": self.email,
-            "created_at": self.created_at.isoformat(),
-            "roles": [role.role for role in self.roles]
-            # do not serialize the password, its a security breach
+            "name": self.name,
+            "last_name": self.last_name,
+            "cover_image": self.cover_image,
+            "profile_image": self.profile_image,
+            "is_provider": self.is_provider,
+            "is_active": self.is_active,
+            "date_created": self.date_created.isoformat(),
+            "followers_count": len(self.followers),
+            "following_count": len(self.following),
+            "provider_profile": self.provider_profile.serialize_basic() if self.provider_profile else None
+        }
+    def serialize_basic(self):
+        return {
+            "id": self.id,
+            "name": self.name,
+            "last_name": self.last_name,
+            "profile_image": self.profile_image
         }
 
 
-class UserRole(db.Model):
-    id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), nullable=False)
-    role: Mapped[str] = mapped_column(String(20), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    user: Mapped["User"] = relationship(back_populates="roles")
-            "role": self.role,
-            "city": self.city,
-            "phone": self.phone,
-            "verified": self.verified,
-            "created_at": self.created_at.isoformat()
-        }
-
-# -------------------- PROVIDER PROFILE --------------------
-class ProviderProfile(db.Model):
+class Provider_Profile(db.Model):
     __tablename__ = "provider_profile"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
-    bio: Mapped[str] = mapped_column(Text)
-    coverage_area: Mapped[str] = mapped_column(String(255))
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), unique=True)
+    role: Mapped[str] = mapped_column(String(100), nullable=False)
+    phone: Mapped[str] = mapped_column(String(20), nullable=True)
+    verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+    bio: Mapped[str] = mapped_column(Text, nullable=True)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    coverage_area: Mapped[str] = mapped_column(String(255), nullable=True)
     is_home_service: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
 
     user: Mapped["User"] = relationship(back_populates="provider_profile")
+    pay_methods: Mapped[list["PaymentMethod"]] = relationship(secondary=payment_methods_association)
     services: Mapped[list["Service"]] = relationship(back_populates="provider")
+    availabilities: Mapped[list["Availability"]] = relationship(back_populates="provider")
     schedule: Mapped[list["ProviderSchedule"]] = relationship(back_populates="provider")
     portfolio: Mapped[list["ProviderPortfolio"]] = relationship(back_populates="provider")
 
@@ -67,187 +102,235 @@ class ProviderProfile(db.Model):
         return {
             "id": self.id,
             "user_id": self.user_id,
+            "user_info": self.user.serialize_basic() if self.user else None,
+            "role": self.role,
+            "description": self.description,
             "bio": self.bio,
             "coverage_area": self.coverage_area,
-            "is_home_service": self.is_home_service
+            "is_home_service": self.is_home_service,
+            "pay_methods": [method.serialize() for method in self.pay_methods],
+            "services": [service.serialize_basic() for service in self.services]
         }
 
-# -------------------- CATEGORY --------------------
-class Category(db.Model):
-    __tablename__ = "category"
-
+class PaymentMethod(db.Model):
+    __tablename__ = "payment_methods"
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
-    description: Mapped[str] = mapped_column(Text)
+    name: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
 
+    def serialize(self):
+        return {
+            "id": self.id,
+            "name": self.name
+        }
+
+class Category(db.Model):
+    __tablename__ = "categories"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    description: Mapped[str] = mapped_column(Text)
     subcategories: Mapped[list["Subcategory"]] = relationship(back_populates="category")
 
     def serialize(self):
         return {
             "id": self.id,
             "name": self.name,
-            "description": self.description
+            "description": self.description,
+            "subcategories": [sub.serialize() for sub in self.subcategories]
         }
 
 class Subcategory(db.Model):
-    __tablename__ = "subcategory"
-
+    __tablename__ = "subcategories"
+    
     id: Mapped[int] = mapped_column(primary_key=True)
-    category_id: Mapped[int] = mapped_column(ForeignKey("category.id"))
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+    category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
 
     category: Mapped["Category"] = relationship(back_populates="subcategories")
+    services: Mapped[list["Service"]] = relationship(back_populates="subcategory")
 
     def serialize(self):
         return {
             "id": self.id,
+            "name": self.name,
             "category_id": self.category_id,
-            "name": self.name
+            "category_name": self.category.name if self.category else None
         }
 
-# -------------------- SERVICE --------------------
 class Service(db.Model):
-    __tablename__ = "service"
+    __tablename__ = "services"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     provider_id: Mapped[int] = mapped_column(ForeignKey("provider_profile.id"))
-    subcategory_id: Mapped[int] = mapped_column(ForeignKey("subcategory.id"))
-    title: Mapped[str] = mapped_column(String(120), nullable=False)
-    description: Mapped[str] = mapped_column(Text)
-    price: Mapped[float] = mapped_column(Float, nullable=False)
-    duration_minutes: Mapped[int] = mapped_column(Integer)
-    visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    subcategory_id: Mapped[int] = mapped_column(ForeignKey("subcategories.id")) 
+    
+    title: Mapped[str] = mapped_column(String(150), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    estimated_duration: Mapped[int] = mapped_column(Integer, nullable=True)
+    
+    visible: Mapped[bool] = mapped_column(Boolean, default=True) 
 
-    provider: Mapped["ProviderProfile"] = relationship(back_populates="services")
-    availability: Mapped[list["ServiceAvailability"]] = relationship(back_populates="service")
-    reservations: Mapped[list["Reservation"]] = relationship(back_populates="service")
+    provider: Mapped["Provider_Profile"] = relationship(back_populates="services")
+    subcategory: Mapped["Subcategory"] = relationship(back_populates="services")
+    appointments: Mapped[list["Appointment"]] = relationship(back_populates="service")
+    media: Mapped[list["Media"]] = relationship(back_populates="service")
 
     def serialize(self):
         return {
             "id": self.id,
-            "provider_id": self.provider_id,
-            "subcategory_id": self.subcategory_id,
+            "provider": self.provider.serialize_basic() if self.provider else None,
+            "subcategory": self.subcategory.serialize() if self.subcategory else None,
             "title": self.title,
             "description": self.description,
-            "price": self.price,
-            "duration_minutes": self.duration_minutes,
-            "visible": self.visible
-         }
-
-# -------------------- AVAILABILITY --------------------
-class ServiceAvailability(db.Model):
-    __tablename__ = "service_availability"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    service_id: Mapped[int] = mapped_column(ForeignKey("service.id"))
-    date: Mapped[Date] = mapped_column(Date)
-    start_time: Mapped[Time] = mapped_column(Time)
-    end_time: Mapped[Time] = mapped_column(Time)
-    is_available: Mapped[bool] = mapped_column(Boolean, default=True)
-    price_override: Mapped[float] = mapped_column(Float, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    service: Mapped["Service"] = relationship(back_populates="availability")
-
-    def serialize(self):
-        return {
-            "id": self.id,
-            "service_id": self.service_id,
-            "date": self.date.isoformat() if self.date else None,
-            "start_time": self.start_time.strftime("%H:%M") if self.start_time else None,
-            "end_time": self.end_time.strftime("%H:%M") if self.end_time else None,
-            "is_available": self.is_available,
-            "price_override": self.price_override,
-            "created_at": self.created_at.isoformat()
-        } 
-
-# -------------------- RESERVATION --------------------
-class Reservation(db.Model):
-    __tablename__ = "reservation"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    client_id: Mapped[int] = mapped_column(ForeignKey("user.id"))
-    service_id: Mapped[int] = mapped_column(ForeignKey("service.id"))
-    availability_id: Mapped[int] = mapped_column(ForeignKey("service_availability.id"))
-    date: Mapped[Date] = mapped_column(Date)
-    start_time: Mapped[Time] = mapped_column(Time)
-    end_time: Mapped[Time] = mapped_column(Time)
-    status: Mapped[str] = mapped_column(String(20), default="pending")
-    total_price: Mapped[float] = mapped_column(Float)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    client: Mapped["User"] = relationship(back_populates="reservations")
-    service: Mapped["Service"] = relationship(back_populates="reservations")
-    transaction: Mapped["Transaction"] = relationship(back_populates="reservation", uselist=False)
-    review: Mapped["Review"] = relationship(back_populates="reservation", uselist=False)
-
-    def serialize(self):
-        return {
-            "id": self.id,
-            "client_id": self.client_id,
-            "service_id": self.service_id,
-            "availability_id": self.availability_id,
-            "date": self.date.isoformat() if self.date else None,
-            "start_time": self.start_time.strftime("%H:%M") if self.start_time else None,
-            "end_time": self.end_time.strftime("%H:%M") if self.end_time else None,
-            "status": self.status,
-            "total_price": self.total_price,
-            "created_at": self.created_at.isoformat()
+            "price": float(self.price),
+            "estimated_duration": self.estimated_duration,
+            "visible": self.visible, 
+            "media": [m.serialize() for m in self.media],
+            "reviews_data": self.get_reviews_summary()
         }
 
-# -------------------- TRANSACTION --------------------
+    def serialize_basic(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "price": float(self.price),
+            "estimated_duration": self.estimated_duration,
+            "visible": self.visible
+        }
+
+    def get_reviews_summary(self):
+        completed_appointments = [app for app in self.appointments if app.review]
+        total_reviews = len(completed_appointments)
+        
+        if total_reviews == 0:
+            return {"average_rating": 0, "total_reviews": 0}
+            
+        sum_ratings = sum([app.review.rating for app in completed_appointments])
+        return {
+            "average_rating": round(sum_ratings / total_reviews, 1),
+            "total_reviews": total_reviews
+        }
+
+class Availability(db.Model):
+    __tablename__ = "availabilities"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider_id: Mapped[int] = mapped_column(ForeignKey("provider_profile.id"))
+    day_of_week: Mapped[int] = mapped_column(Integer, nullable=False)
+    start_time: Mapped[Time] = mapped_column(Time, nullable=False)
+    end_time: Mapped[Time] = mapped_column(Time, nullable=False)
+    
+    provider: Mapped["Provider_Profile"] = relationship(back_populates="availabilities")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "day_of_week": self.day_of_week,
+            "start_time": self.start_time.strftime("%H:%M") if self.start_time else None,
+            "end_time": self.end_time.strftime("%H:%M") if self.end_time else None
+        }
+
+class Appointment(db.Model):
+    __tablename__ = "appointments"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
+    date_time: Mapped[DateTime] = mapped_column(DateTime, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending") 
+    
+    client: Mapped["User"] = relationship(back_populates="appointments")
+    service: Mapped["Service"] = relationship(back_populates="appointments")
+    review: Mapped["Review"] = relationship(back_populates="appointment", uselist=False)
+    
+    transaction: Mapped["Transaction"] = relationship(back_populates="appointment", uselist=False)
+
+
 class Transaction(db.Model):
     __tablename__ = "transaction"
-
+    
     id: Mapped[int] = mapped_column(primary_key=True)
-    reservation_id: Mapped[int] = mapped_column(ForeignKey("reservation.id"))
-    amount: Mapped[float] = mapped_column(Float)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"))
+    amount: Mapped[float] = mapped_column(Numeric(10, 2))
     status: Mapped[str] = mapped_column(String(20))
-    transaction_date: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    reservation: Mapped["Reservation"] = relationship(back_populates="transaction")
+    transaction_date: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
+    
+    appointment: Mapped["Appointment"] = relationship(back_populates="transaction")
 
     def serialize(self):
         return {
             "id": self.id,
-            "reservation_id": self.reservation_id,
-            "amount": self.amount,
-            "status": self.status,
-            "transaction_date": self.transaction_date.isoformat()
+            "day_of_week": self.day_of_week,
+            "start_time": self.start_time.strftime("%H:%M") if self.start_time else None,
+            "end_time": self.end_time.strftime("%H:%M") if self.end_time else None
         }
 
-# -------------------- REVIEW --------------------
-class Review(db.Model):
-    __tablename__ = "review"
-
+class Appointment(db.Model):
+    __tablename__ = "appointments"
+    
     id: Mapped[int] = mapped_column(primary_key=True)
-    reservation_id: Mapped[int] = mapped_column(ForeignKey("reservation.id"))
-    rating: Mapped[int] = mapped_column(Integer)
-    comment: Mapped[str] = mapped_column(Text)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    client_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"))
+    date_time: Mapped[DateTime] = mapped_column(DateTime, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending") 
+    
+    client: Mapped["User"] = relationship(back_populates="appointments")
+    service: Mapped["Service"] = relationship(back_populates="appointments")
+    review: Mapped["Review"] = relationship(back_populates="appointment", uselist=False)
+    
+    transaction: Mapped["Transaction"] = relationship(back_populates="appointment", uselist=False)
 
-    reservation: Mapped["Reservation"] = relationship(back_populates="review")
+
+class Transaction(db.Model):
+    __tablename__ = "transaction"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"))
+    amount: Mapped[float] = mapped_column(Numeric(10, 2)) 
+    status: Mapped[str] = mapped_column(String(20))
+    transaction_date: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
+    
+    appointment: Mapped["Appointment"] = relationship(back_populates="transaction")
 
     def serialize(self):
         return {
             "id": self.id,
-            "reservation_id": self.reservation_id,
             "rating": self.rating,
             "comment": self.comment,
-            "created_at": self.created_at.isoformat()
+            "client_name": self.appointment.client.name if self.appointment else None,
+            "media": [m.serialize() for m in self.media]
         }
 
-# -------------------- PORTFOLIO --------------------
+class Media(db.Model):
+    __tablename__ = "media"
+    
+    id: Mapped[int] = mapped_column(primary_key=True)
+    url: Mapped[str] = mapped_column(String(255), nullable=False)
+    
+    service_id: Mapped[int] = mapped_column(ForeignKey("services.id"), nullable=True)
+    review_id: Mapped[int] = mapped_column(ForeignKey("reviews.id"), nullable=True)
+    
+    service: Mapped["Service"] = relationship(back_populates="media")
+    review: Mapped["Review"] = relationship(back_populates="media")
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "url": self.url,
+            "type": "service" if self.service_id else "review" if self.review_id else "unknown"
+        }
+
 class ProviderPortfolio(db.Model):
     __tablename__ = "provider_portfolio"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     provider_id: Mapped[int] = mapped_column(ForeignKey("provider_profile.id"))
-    image_url: Mapped[str] = mapped_column(String(255))
-    description: Mapped[str] = mapped_column(Text)
-    uploaded_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    image_url: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=True)
+    uploaded_at: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
 
-    provider: Mapped["ProviderProfile"] = relationship(back_populates="portfolio")
+    provider: Mapped["Provider_Profile"] = relationship(back_populates="portfolio")
 
     def serialize(self):
         return {
@@ -255,27 +338,5 @@ class ProviderPortfolio(db.Model):
             "provider_id": self.provider_id,
             "image_url": self.image_url,
             "description": self.description,
-            "uploaded_at": self.uploaded_at.isoformat()
+            "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None
         }
-
-# -------------------- SCHEDULE --------------------
-class ProviderSchedule(db.Model):
-    __tablename__ = "provider_schedule"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    provider_id: Mapped[int] = mapped_column(ForeignKey("provider_profile.id"))
-    day_of_week: Mapped[str] = mapped_column(String(10))
-    start_time: Mapped[Time] = mapped_column(Time)
-    end_time: Mapped[Time] = mapped_column(Time)
-
-    provider: Mapped["ProviderProfile"] = relationship(back_populates="schedule")
-
-    def serialize(self):
-        return {
-            "id": self.id,
-            "provider_id": self.provider_id,
-            "day_of_week": self.day_of_week,
-            "start_time": self.start_time.strftime("%H:%M") if self.start_time else None,
-            "end_time": self.end_time.strftime("%H:%M") if self.end_time else None
-        }
-
