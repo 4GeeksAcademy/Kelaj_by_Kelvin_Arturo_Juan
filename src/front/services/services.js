@@ -28,15 +28,30 @@ export const createReservation = async (data) => {
 };
 
 // Crear una transacción
-export const createTransaction = async (data) => {
-  const response = await fetch(`${BACKEND_URL}/transactions`, {
+export async function createTransaction(data) {
+  const resp = await fetch(process.env.BACKEND_URL + "/charge", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + localStorage.getItem("token")
+    },
+    body: JSON.stringify(data)
   });
-  if (!response.ok) throw new Error("Error al crear la transacción");
-  return await response.json();
-};
+  return await resp.json();
+}
+
+export async function createTransactionWithSaved(data) {
+  const resp = await fetch(process.env.BACKEND_URL + "/charge/saved", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + localStorage.getItem("token")
+    },
+    body: JSON.stringify(data)
+  });
+  return await resp.json();
+}
+
 
 // Confirmar pago
 export const confirmPayment = async (transactionId, reservationId) => {

@@ -4,9 +4,11 @@ import {
   getAvailability,
   createReservation,
   createTransaction,
-  confirmPayment
 } from "../services/services";
 import "./Checkout.css";
+import { addPaymentMethod } from "../services/paymentMethods";
+import { getPaymentMethods } from "../services/paymentMethods";
+
 
 export default function Checkout({ serviceId }) {
 
@@ -19,7 +21,11 @@ export default function Checkout({ serviceId }) {
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [clientData, setClientData] = useState({ name: "", email: "", phone: "" });
   const [reservationId, setReservationId] = useState(null);
-  const [transactionId, setTransactionId] = useState(null);
+  const [transactionId, setTransactionId] = useState(null)
+  const [saveCard, setSaveCard] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+
 
   // ============================
   // AUTOCOMPLETADO USER LOGUEADO Y CARGAR SERVICIO
@@ -39,6 +45,21 @@ export default function Checkout({ serviceId }) {
     getServiceById(serviceId).then(setService).catch(console.error);
   }, [serviceId]);
 
+  // ============================
+  // MONTAR FORMULARIO DE STRIPE EN STEP 5
+  // ============================
+  useEffect(() => {
+    getPaymentMethods().then(setPaymentMethods);
+  }, []);
+
+  useEffect(() => {
+    if (step === 5) {
+      const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+      const elements = stripe.elements();
+      const cardElement = elements.create("card");
+      cardElement.mount("#card-element");
+    }
+  }, [step]);
 
   // ============================
   // Skeleton loader mientras carga
@@ -67,35 +88,93 @@ export default function Checkout({ serviceId }) {
   // ============================
   // CREAR RESERVA
   // ============================
-    const handleReservation = async () => {
+  const handleReservation = async () => {
     const data = {
-        client_id: 1, // ID del cliente logueado
-        service_id: service.id,
-        availability_id: selectedSlot.id,
-        date: selectedSlot.date,
-        start_time: selectedSlot.start_time,
-        end_time: selectedSlot.end_time,
-        total_price: total
-      };
-      const res = await createReservation(data);
-      setReservationId(res.reservation_id);
-      setStep(5);
+      client_id: 1, // ID del cliente logueado
+      service_id: service.id,
+      availability_id: selectedSlot.id,
+      date: selectedSlot.date,
+      start_time: selectedSlot.start_time,
+      end_time: selectedSlot.end_time,
+      total_price: total
     };
 
-  // ============================
-  // CREAR TRANSACCIÓN
-  // ============================
-  const handleTransaction = async () => {
-    const res = await createTransaction({ reservation_id: reservationId, amount: total });
-    setTransactionId(res.transaction_id);
-    setStep(6);
+    const res = await createReservation(data);
+    setReservationId(res.reservation_id);
+
+    // Si NO tiene tarjetas guardadas → ir directo a Stripe
+    if (paymentMethods.length === 0) {
+      setStep(6);
+    } else {
+      // Si SÍ tiene tarjetas guardadas → mostrar selección
+      setStep(5);
+    }
   };
 
   // ============================
-  // CONFIRMAR PAGO + RESERVA
+  // PAGO CON TARJETA GUARDADA
   // ============================
-  const handleConfirmPayment = async () => {
-    await confirmPayment(transactionId, reservationId);
+  const handleTransactionWithSavedCard = async () => {
+    const res = await createTransaction({
+      reservation_id: reservationId,
+      amount: total,
+      payment_method_id: selectedPaymentMethod.id
+    });
+
+    setTransactionId(res.transaction_id);
+    setStep(7);
+  };
+
+  // ============================
+  // PAGO CON TARJETA NUEVA (STRIPE)
+  // ============================
+  const handleTransaction = async () => {
+    const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+    const elements = stripe.elements();
+    const cardElement = elements.getElement("card");
+
+    // 1. Crear token solo si el usuario usa tarjeta nueva
+    let token = null;
+    if (!selectedPaymentMethod) {
+      const { token: stripeToken, error } = await stripe.createToken(cardElement);
+      if (error) {
+        alert("Error al procesar la tarjeta");
+        return;
+      }
+      token = stripeToken;
+    }
+
+    // 2️. Cobrar según el tipo de tarjeta
+    let res;
+
+    if (selectedPaymentMethod) {
+      // Pagar con tarjeta guardada
+      res = await createTransactionWithSaved({
+        reservation_id: reservationId,
+        amount: total,
+        payment_method_id: selectedPaymentMethod.id
+      });
+    } else {
+      // Pagar con tarjeta nueva
+      res = await createTransaction({
+        reservation_id: reservationId,
+        amount: total,
+        token_id: token.id
+      });
+
+      // Guardar tarjeta si el usuario quiere
+      if (saveCard) {
+        await addPaymentMethod({
+          provider: "stripe",
+          token_id: token.id,
+          brand: token.card.brand,
+          last_four_digits: token.card.last4
+        });
+      }
+    }
+
+    // 3️. Actualizar estado y pasar al paso final
+    setTransactionId(res.transaction_id);
     setStep(7);
   };
 
@@ -257,28 +336,96 @@ export default function Checkout({ serviceId }) {
   if (step === 5)
     return (
       <Container>
-        <h2 className="checkout-title">Pago seguro</h2>
+        <h2 className="checkout-title">Método de pago</h2>
 
-        <button
-          className="checkout-btn checkout-btn-success w-100"
-          onClick={handleTransaction}
-        >
-          Pagar ahora
-        </button>
+        {/* Si tiene tarjetas guardadas */}
+        {paymentMethods.length > 0 && (
+          <>
+            <h5 className="mb-3">Tus tarjetas guardadas</h5>
+
+            {paymentMethods.map(pm => (
+              <button
+                key={pm.id}
+                className="slot-btn w-100 mb-2"
+                onClick={() => {
+                  setSelectedPaymentMethod(pm);
+                  setStep(6); // Ir directamente al pago
+                }}
+              >
+                {pm.brand.toUpperCase()} •••• {pm.last_four_digits}
+              </button>
+            ))}
+
+            <button
+              className="checkout-btn checkout-btn-primary w-100 mt-3"
+              onClick={() => setStep(6)} // Usar nueva tarjeta
+            >
+              Usar otra tarjeta
+            </button>
+          </>
+        )}
+
+        {/* Si NO tiene tarjetas guardadas */}
+        {paymentMethods.length === 0 && (
+          <>
+            <p>No tienes tarjetas guardadas.</p>
+            <button
+              className="checkout-btn checkout-btn-primary w-100 mt-3"
+              onClick={() => setStep(6)}
+            >
+              Añadir tarjeta y pagar
+            </button>
+          </>
+        )}
       </Container>
     );
+
 
   if (step === 6)
     return (
       <Container>
-        <h2 className="checkout-title">Procesando pago...</h2>
+        <h2 className="checkout-title">Pago seguro</h2>
 
-        <button
-          className="checkout-btn checkout-btn-primary w-100"
-          onClick={handleConfirmPayment}
-        >
-          Confirmar pago
-        </button>
+        {/* Si el usuario eligió tarjeta guardada */}
+        {selectedPaymentMethod && (
+          <>
+            <p>Pagando con:</p>
+            <p className="fw-bold">
+              {selectedPaymentMethod.brand.toUpperCase()} •••• {selectedPaymentMethod.last_four_digits}
+            </p>
+
+            <button
+              className="checkout-btn checkout-btn-success w-100 mt-4"
+              onClick={handleTransactionWithSavedCard}
+            >
+              Pagar ahora
+            </button>
+          </>
+        )}
+
+        {/* Si el usuario quiere tarjeta nueva */}
+        {!selectedPaymentMethod && (
+          <>
+            <div id="card-element" className="stripe-card-element"></div>
+
+            <label className="mt-3 d-flex align-items-center">
+              <input
+                type="checkbox"
+                checked={saveCard}
+                onChange={() => setSaveCard(!saveCard)}
+                className="me-2"
+              />
+              Guardar tarjeta para futuras compras
+            </label>
+
+            <button
+              className="checkout-btn checkout-btn-success w-100 mt-4"
+              onClick={handleTransaction}
+            >
+              Pagar ahora
+            </button>
+          </>
+        )}
       </Container>
     );
 
