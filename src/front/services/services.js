@@ -17,53 +17,41 @@ export const getAvailability = async (serviceId) => {
 };
 
 // Crear una reserva
-export const createReservation = async (data) => {
-  const response = await fetch(`${BACKEND_URL}/reservations`, {
+export const createAppointment = async (data) => {
+  const response = await fetch(`${BACKEND_URL}/appointments`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${localStorage.getItem("token")}`
+    },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error("Error al crear la reserva");
+  if (!response.ok) throw new Error("Error al crear la cita");
   return await response.json();
 };
 
-// Crear una transacción
+// Crear una transacción con tarjeta nueva
 export async function createTransaction(data) {
-  const resp = await fetch(process.env.BACKEND_URL + "/charge", {
+  const resp = await fetch(`${BACKEND_URL}/charge`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer " + localStorage.getItem("token")
+      Authorization: `Bearer ${localStorage.getItem("token")}`
     },
     body: JSON.stringify(data)
   });
   return await resp.json();
 }
 
+// Crear una transacción con tarjeta guardada
 export async function createTransactionWithSaved(data) {
-  const resp = await fetch(process.env.BACKEND_URL + "/charge/saved", {
+  const resp = await fetch(`${BACKEND_URL}/charge/saved`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: "Bearer " + localStorage.getItem("token")
+      Authorization: `Bearer ${localStorage.getItem("token")}`
     },
     body: JSON.stringify(data)
   });
   return await resp.json();
 }
-
-
-// Confirmar pago
-export const confirmPayment = async (transactionId, reservationId) => {
-  await fetch(`${BACKEND_URL}/transactions/${transactionId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "paid" }),
-  });
-
-  await fetch(`${BACKEND_URL}/reservations/${reservationId}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ status: "confirmed" }),
-  });
-};

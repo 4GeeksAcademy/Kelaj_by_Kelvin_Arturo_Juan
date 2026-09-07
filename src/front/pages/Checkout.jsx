@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   getServiceById,
   getAvailability,
-  createReservation,
+  createAppointment,
   createTransaction,
 } from "../services/services";
 import "./Checkout.css";
@@ -20,7 +20,7 @@ export default function Checkout({ serviceId }) {
   const [availabilityList, setAvailabilityList] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [clientData, setClientData] = useState({ name: "", email: "", phone: "" });
-  const [reservationId, setReservationId] = useState(null);
+  const [appointmentId, setAppointmentId] = useState(null);
   const [transactionId, setTransactionId] = useState(null)
   const [saveCard, setSaveCard] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([]);
@@ -86,21 +86,19 @@ export default function Checkout({ serviceId }) {
   const total = service.price + commission;
 
   // ============================
-  // CREAR RESERVA
+  // CREAR CITA
   // ============================
-  const handleReservation = async () => {
+  const handleAppointment = async () => {
+    const date_time = `${selectedSlot.date}T${selectedSlot.start_time}:00`;
+
     const data = {
-      client_id: 1, // ID del cliente logueado
+      client_id: JSON.parse(localStorage.getItem("user")).id,
       service_id: service.id,
-      availability_id: selectedSlot.id,
-      date: selectedSlot.date,
-      start_time: selectedSlot.start_time,
-      end_time: selectedSlot.end_time,
-      total_price: total
+      date_time: date_time
     };
 
-    const res = await createReservation(data);
-    setReservationId(res.reservation_id);
+    const res = await createAppointment(data);
+    setAppointmentId(res.appointment_id);
 
     // Si NO tiene tarjetas guardadas → ir directo a Stripe
     if (paymentMethods.length === 0) {
@@ -116,7 +114,7 @@ export default function Checkout({ serviceId }) {
   // ============================
   const handleTransactionWithSavedCard = async () => {
     const res = await createTransaction({
-      reservation_id: reservationId,
+      appointment_id: appointmentId,
       amount: total,
       payment_method_id: selectedPaymentMethod.id
     });
@@ -150,14 +148,14 @@ export default function Checkout({ serviceId }) {
     if (selectedPaymentMethod) {
       // Pagar con tarjeta guardada
       res = await createTransactionWithSaved({
-        reservation_id: reservationId,
+        appointment_id: appointmentId,
         amount: total,
         payment_method_id: selectedPaymentMethod.id
       });
     } else {
       // Pagar con tarjeta nueva
       res = await createTransaction({
-        reservation_id: reservationId,
+        appointment_id: appointmentId,
         amount: total,
         token_id: token.id
       });
@@ -326,7 +324,7 @@ export default function Checkout({ serviceId }) {
 
         <button
           className="checkout-btn checkout-btn-success w-100 mt-3"
-          onClick={handleReservation}
+          onClick={handleAppointment}
         >
           Ir al pago
         </button>
