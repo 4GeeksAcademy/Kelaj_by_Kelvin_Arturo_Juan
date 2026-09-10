@@ -10,10 +10,6 @@ import stripe
 
 api = Blueprint('api', __name__)
 
-# ============================================================
-# 🔹 AUTH
-# ============================================================
-
 @api.route('/register', methods=['POST'])
 def register():
     body = request.get_json()
@@ -145,7 +141,7 @@ def add_payment_method():
 
     return jsonify(method.serialize()), 201
 
-
+# CHECKOUT: ROUTES
 @api.route('/payment-methods', methods=['GET'])
 @jwt_required()
 def get_payment_methods():
@@ -272,3 +268,96 @@ def create_charge_with_saved_method():
     except Exception as e:
         print(e)
         return jsonify({"error": "Error procesando el pago"}), 500
+
+# PANEL PROFESIONAL: ROUTES
+@api.route('/provider/summary', methods=['GET'])
+@jwt_required()
+def provider_summary():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    # Total ganado
+    transactions = Transaction.query.join(Appointment).filter(
+        Appointment.service.has(provider_id=provider.id),
+        Transaction.status == "paid"
+    ).all()
+
+    total_earned = sum(t.amount for t in transactions)
+
+    # Ganado este mes
+    from datetime import datetime
+    now = datetime.now()
+    monthly_earned = sum(
+        t.amount for t in transactions
+        if t.transaction_date.month == now.month and t.transaction_date.year == now.year
+    )
+
+    # Citas
+    appointments = Appointment.query.join(Service).filter(
+        Service.provider_id == provider.id
+    ).all()
+
+    summary = {
+        "total_earned": float(total_earned),
+        "monthly_earned": float(monthly_earned),
+        "completed": len([a for a in appointments if a.status == "completed"]),
+        "pending": len([a for a in appointments if a.status == "pending"]),
+        "upcoming": len([a for a in appointments if a.status == "upcoming"]),
+        "in_progress": len([a for a in appointments if a.status == "in_progress"])
+    }
+
+    return jsonify(summary), 200
+
+@api.route('/provider/services', methods=['GET'])
+@jwt_required()
+def provider_services():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    services = Service.query.filter_by(provider_id=provider.id).all()
+    return jsonify([s.serialize() for s in services]), 200
+
+@api.route('/provider/services/<int:id>/toggle', methods=['PUT'])
+@jwt_required()
+def toggle_service(id):
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    service = Service.query.filter_by(id=id, provider_id=provider.id).first()
+    if not service:
+        return jsonify({"error": "Servicio no encontrado"}), 404
+
+    service.visible = not service.visible
+    db.session.commit()
+
+    return jsonify(service.serialize()), 200
+
+@api.route('/provider/appointments', methods=['GET'])
+@jwt_required()
+def provider_appointments():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    appointments = Appointment.query.join(Service).filter(
+        Service.provider_id == provider.id
+    ).all()
+
+    return jsonify([a.serialize() for a in appointments]), 200
+
+@api.route('/provider/transactions', methods=['GET'])
+@jwt_required()
+def provider_transactions():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    transactions = Transaction.query.join(Appointment).join(Service).filter(
+        Service.provider_id == provider.id
+    ).all()
+
+    return jsonify([t.serialize() for t in transactions]), 200
