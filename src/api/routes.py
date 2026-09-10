@@ -272,3 +272,99 @@ def create_charge_with_saved_method():
     except Exception as e:
         print(e)
         return jsonify({"error": "Error procesando el pago"}), 500
+
+#para obtener los perfiles publicos:
+
+@api.route('/users/<int:user_id>', methods=['GET'])
+def get_user_profile(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+    
+    return jsonify(user.serialize()), 200
+
+#para seguir y ser seguido:
+
+@api.route('/users/<int:user_id>/follow', methods=['POST', 'DELETE'])
+@jwt_required()
+def toggle_follow(user_id):
+    current_user_id = get_jwt_identity()
+    
+    if int(current_user_id) == user_id:
+        return jsonify({"error": "No puedes seguirte a ti mismo"}), 400
+        
+    current_user = User.query.get(current_user_id)
+    target_user = User.query.get(user_id)
+    
+    if not target_user:
+        return jsonify({"error": "Usuario a seguir no encontrado"}), 404
+
+    if request.method == 'POST':
+        if target_user not in current_user.following:
+            current_user.following.append(target_user)
+            db.session.commit()
+            return jsonify({"message": f"Ahora sigues a {target_user.name}"}), 200
+        return jsonify({"message": "Ya sigues a este usuario"}), 400
+
+    if request.method == 'DELETE':
+        if target_user in current_user.following:
+            current_user.following.remove(target_user)
+            db.session.commit()
+            return jsonify({"message": f"Dejaste de seguir a {target_user.name}"}), 200
+        return jsonify({"message": "No sigues a este usuario"}), 400
+    
+#sistema de reviews:
+
+@jwt_required()
+def create_review(appointment_id):
+    current_user_id = get_jwt_identity()
+    body = request.get_json()
+    
+    rating = body.get("rating")
+    comment = body.get("comment")
+    
+    if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+        return jsonify({"error": "El rating debe ser un número entre 1 y 5"}), 400
+
+    appointment = Appointment.query.get(appointment_id)
+    
+    if not appointment:
+        return jsonify({"error": "Cita no encontrada"}), 404
+        
+    if int(appointment.client_id) != int(current_user_id):
+        return jsonify({"error": "Solo el cliente de la cita puede dejar una reseña"}), 403
+        
+    if appointment.review:
+        return jsonify({"error": "Esta cita ya tiene una reseña"}), 400
+
+    new_review = Review(
+        appointment_id=appointment.id,
+        rating=rating,
+        comment=comment
+    )
+    
+    db.session.add(new_review)
+    db.session.commit()
+    
+    return jsonify({"message": "Reseña creada exitosamente", "review": new_review.serialize()}), 201
+
+#busquedas
+
+@api.route('/search/providers', methods=['GET'])
+def search_providers():
+    query = request.args.get('q', '').lower()
+    location = request.args.get('location', '').lower()
+    
+    # Iniciar búsqueda base
+    search = User.query.filter_by(is_active=True, is_provider=True)
+    
+    if query:
+        search = search.filter(User.name.ilike(f'%{query}%') | User.last_name.ilike(f'%{query}%'))
+        
+    if location:
+        search = search.join(ProviderProfile).filter(ProviderProfile.coverage_area.ilike(f'%{location}%'))
+        
+    providers = search.all()
+    return jsonify([provider.serialize() for provider in providers]), 200
+
+    
