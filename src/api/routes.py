@@ -14,7 +14,7 @@ api = Blueprint('api', __name__)
 # ============================================================
 
 @api.route('/auth/register', methods=['POST'])
-def register():
+def register_auth():
     data = request.get_json()
 
     user = User(
@@ -92,3 +92,15 @@ def login():
     access_token = create_access_token(identity=str(user.id), additional_claims={"roles": roles})
 
     return jsonify({"message": "login exitoso", "token": access_token, "user": user.serialize()}), 200
+
+
+@api.route('/services/featured', methods=['GET'])
+def featured_services():
+    services = Service.query.filter_by(visible=True).order_by(Service.id.desc()).limit(6).all()
+    return jsonify([s.serialize() for s in services]), 200
+
+
+@api.route('/categories', methods=['GET'])
+def get_categories():
+    categories = Category.query.all()
+    return jsonify([c.serialize() for c in categories]), 200
