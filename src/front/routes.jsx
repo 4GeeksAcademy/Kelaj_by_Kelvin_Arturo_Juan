@@ -11,12 +11,14 @@ import { Privacy } from "./pages/Privacy";
 import { Register } from "./pages/Register";
 import { Login } from "./pages/Login";
 import Checkout from "./pages/Checkout";
+import { Search } from "./pages/Search"; 
 
 export const router = createBrowserRouter(
     createRoutesFromElements(
       <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
         <Route path= "/" element={<Home />} />
-        <Route path="/single/:theId" element={ <Single />} />  {/* Dynamic route for single items */}
+        <Route path="/search" element={<Search />} /> 
+        <Route path="/single/:theId" element={ <Single />} />  
         <Route path="/checkout" element={<Checkout serviceId={4}/>} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/privacy" element={<Privacy />} />

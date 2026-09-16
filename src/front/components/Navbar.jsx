@@ -5,7 +5,7 @@ export const Navbar = () => {
 	return (
 		<nav className="navbar navbar-expand-lg navbar-light bg-white py-3">
 			<div className="container-fluid px-4 px-lg-5">
-				<a className="navbar-brand d-flex align-items-center gap-2" href="#">
+				<a className="navbar-brand d-flex align-items-center gap-2" href="/">
 					<div className="brand-logo rounded-circle fw-bold">JK</div>
 					<span className="fw-bold fs-5 text-dark">Jake</span>
 				</a>
@@ -18,7 +18,7 @@ export const Navbar = () => {
 						<a href="#" className="text-secondary d-none d-lg-block">
 							<i className="bi bi-globe fs-5"></i>
 						</a>
-						<a href="/" className="btn btn-outline-secondary rounded-pill"><i className="bi bi-person fs-5"></i>Acceder</a>
+						<Link to="/Login" className="btn btn-outline-secondary rounded-pill"><i className="bi bi-person fs-5"></i>Acceder</Link>
 					</div>
 				</div>
 			</div>

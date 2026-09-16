@@ -1,12 +1,12 @@
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 export const getProfile = async (userId) => {
     try {
-        const response = await fetch(`${backendUrl}/${userId}`);
+        const response = await fetch(`${BACKEND_URL}/users/${userId}`);
         const data = await response.json();
         
         if (response.ok) {
-            console.log("Datos del perfil:", data);
+            return data;
         } else {
             console.error("Error al obtener perfil:", data.error);
         }
@@ -15,13 +15,12 @@ export const getProfile = async (userId) => {
     }
 };
 
-
 export const toggleFollow = async (userId, isFollowing) => {
     const token = localStorage.getItem("token"); 
     const method = isFollowing ? "DELETE" : "POST";
 
     try {
-        const response = await fetch(`${backendUrl}/${userId}/follow`, {
+        const response = await fetch(`${BACKEND_URL}/users/${userId}/follow`, {
             method: method,
             headers: {
                 "Content-Type": "application/json",
@@ -32,6 +31,7 @@ export const toggleFollow = async (userId, isFollowing) => {
         
         if (response.ok) {
             console.log("Éxito:", data.message);
+            return data;
         }
     } catch (error) {
         console.error("Error al realizar la acción:", error);
@@ -52,7 +52,7 @@ export const createReview = async (appointmentId, rating, comment) => {
     const token = localStorage.getItem("token");
 
     try {
-        const response = await fetch(`${backendUrl}/appointments/${appointmentId}/reviews`, {
+        const response = await fetch(`${BACKEND_URL}/appointments/${appointmentId}/reviews`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -64,9 +64,9 @@ export const createReview = async (appointmentId, rating, comment) => {
         const data = await response.json();
         if (response.ok) {
             console.log("Reseña enviada:", data.message);
+            return data;
         }
     } catch (error) {
         console.error("Error al enviar reseña:", error);
     }
 };
-
