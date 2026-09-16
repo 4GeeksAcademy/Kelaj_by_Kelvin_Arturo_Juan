@@ -5,7 +5,7 @@ from flask import Flask, request, jsonify, url_for, Blueprint
 from api.models import db, User, UserRole, Service, ServiceAvailability, Reservation, Transaction, Review, Category, Subcategory, ProviderProfile, ProviderSchedule, ProviderPortfolio
 from api.utils import generate_sitemap, APIException
 from werkzeug.security import generate_password_hash, check_password_hash
-from flask_jwt_extended import create_access_token
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 
 api = Blueprint('api', __name__)
 
@@ -96,11 +96,63 @@ def login():
 
 @api.route('/services/featured', methods=['GET'])
 def featured_services():
-    services = Service.query.filter_by(visible=True).order_by(Service.id.desc()).limit(6).all()
-    return jsonify([s.serialize() for s in services]), 200
+    featured = Service.query.filter_by(visible=True, featured=True).order_by(Service.id.desc()).limit(6).all()
+    if not featured:
+        featured = Service.query.filter_by(visible=True).order_by(Service.id.desc()).limit(6).all()
+    return jsonify([s.serialize() for s in featured]), 200
 
 
 @api.route('/categories', methods=['GET'])
 def get_categories():
     categories = Category.query.all()
     return jsonify([c.serialize() for c in categories]), 200
+
+
+@api.route('/services/search', methods=['GET'])
+def search_services():
+    q = request.args.get('q', '')
+    cat = request.args.get('cat', type=int)
+    query = Service.query.filter_by(visible=True)
+    if q or cat:
+        query = query.join(Subcategory)
+    if cat:
+        query = query.filter(Subcategory.category_id == cat)
+    if q:
+        query = query.filter(
+            Service.title.ilike('%' + q + '%') |
+            Service.description.ilike('%' + q + '%') |
+            Subcategory.name.ilike('%' + q + '%')
+        )
+    return jsonify([s.serialize() for s in query.order_by(Service.id.desc()).limit(30).all()]), 200
+
+
+@api.route('/services/manage', methods=['GET'])
+@jwt_required()
+def admin_list_services():
+    user = db.session.get(User, int(get_jwt_identity()))
+    if not user or user.role != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+    services = Service.query.order_by(Service.id.desc()).all()
+    return jsonify([{
+        "id": s.id,
+        "title": s.title,
+        "price": float(s.price),
+        "featured": s.featured,
+        "visible": s.visible,
+        "subcategory": s.subcategory.name if s.subcategory else "Sin categoria"
+    } for s in services]), 200
+
+
+@api.route('/services/<int:service_id>/featured', methods=['PUT'])
+@jwt_required()
+def toggle_service_featured(service_id):
+    user = db.session.get(User, int(get_jwt_identity()))
+    if not user or user.role != 'admin':
+        return jsonify({"error": "No autorizado"}), 403
+    service = db.session.get(Service, service_id)
+    if not service:
+        return jsonify({"error": "Servicio no encontrado"}), 404
+    data = request.get_json(silent=True) or {}
+    service.featured = bool(data.get('featured', not service.featured))
+    db.session.commit()
+    return jsonify({"message": "servicio actualizado", "featured": service.featured}), 200

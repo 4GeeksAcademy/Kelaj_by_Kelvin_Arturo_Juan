@@ -138,7 +138,8 @@ class ProviderProfile(db.Model):
     def serialize_basic(self):
         return {
             "id": self.id,
-            "role": self.role
+            "role": self.role,
+            "image": self.user.profile_image if self.user else None
         }
 
 
@@ -200,6 +201,7 @@ class Service(db.Model):
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
     estimated_duration: Mapped[int] = mapped_column(Integer, nullable=True)
     visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    featured: Mapped[bool] = mapped_column(Boolean, default=False)
 
     provider: Mapped["ProviderProfile"] = relationship(back_populates="services")
     subcategory: Mapped["Subcategory"] = relationship(back_populates="services")
@@ -216,6 +218,7 @@ class Service(db.Model):
             "price": float(self.price),
             "estimated_duration": self.estimated_duration,
             "visible": self.visible,
+            "featured": self.featured,
             "media": [m.serialize() for m in self.media],
             "reviews_data": self.get_reviews_summary()
         }

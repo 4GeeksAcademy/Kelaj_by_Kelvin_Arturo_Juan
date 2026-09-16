@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 
 const categoryIcons = {
     "Clases": "🎓",
@@ -18,6 +19,7 @@ export const Home = () => {
     const [services, setServices] = useState([])
     const [search, setSearch] = useState("")
     const [loading, setLoading] = useState(true)
+    const navigate = useNavigate()
 
     const API = import.meta.env.VITE_BACKEND_URL
 
@@ -44,13 +46,18 @@ export const Home = () => {
         (s.subcategory && s.subcategory.name || "").toLowerCase().includes(search.toLowerCase())
     )
 
+    const handleSearch = (e) => {
+        e.preventDefault()
+        navigate("/results?q=" + encodeURIComponent(search))
+    }
+
     return (
         <div>
             <section style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "white", padding: "70px 16px", textAlign: "center" }}>
                 <h1 style={{ fontSize: "2.8rem", fontWeight: 700 }}>Encuentra el servicio que necesitas</h1>
                 <p style={{ fontSize: "1.15rem", opacity: 0.9 }}>Clases, reparaciones, consultoría y más — cerca de ti.</p>
                 <div className="container" style={{ maxWidth: 560, marginTop: 24 }}>
-                    <div className="input-group">
+                    <form className="input-group" onSubmit={handleSearch}>
                         <input
                             type="text"
                             className="form-control form-control-lg"
@@ -58,8 +65,8 @@ export const Home = () => {
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                         />
-                        <button className="btn btn-warning btn-lg" type="button">Buscar</button>
-                    </div>
+                        <button className="btn btn-warning btn-lg" type="submit">Buscar</button>
+                    </form>
                 </div>
             </section>
 
@@ -72,7 +79,7 @@ export const Home = () => {
                         <p className="text-muted">Aún no hay categorías. Crea algunas en el backend.</p>
                     ) : categories.map(cat => (
                         <div key={cat.id} className="col-6 col-md-4 col-lg-3 mb-3">
-                            <div className="card h-100 text-center shadow-sm border-0" style={{ borderRadius: 14, cursor: "pointer" }}>
+                            <div className="card h-100 text-center shadow-sm border-0" style={{ borderRadius: 14, cursor: "pointer" }} onClick={() => navigate("/results?cat=" + cat.id)}>
                                 <div className="card-body d-flex flex-column align-items-center justify-content-center">
                                     <span style={{ fontSize: "2.4rem" }}>{categoryIcons[cat.name] || "✨"}</span>
                                     <h5 className="mt-2 mb-0">{cat.name}</h5>
@@ -107,6 +114,12 @@ export const Home = () => {
                                     <div className="mt-2 d-flex justify-content-between align-items-center">
                                         <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>${s.price}</span>
                                         <span className="badge bg-warning text-dark">★ {s.reviews_data.average_rating}</span>
+                                    </div>
+                                    <div className="d-flex align-items-center mt-2">
+                                        <small className="text-muted">
+                                            {s.provider && s.provider.image ? <img src={s.provider.image} alt="proveedor" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", marginRight: 6 }} /> : null}
+                                            {s.estimated_duration ? <span>⏱ ~{s.estimated_duration} min</span> : null}
+                                        </small>
                                     </div>
                                 </div>
                             </div>

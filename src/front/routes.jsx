@@ -11,6 +11,7 @@ import { Privacy } from "./pages/Privacy";
 import { Register } from "./pages/Register";
 import { Login } from "./pages/Login";
 import Checkout from "./pages/Checkout";
+import { Results } from "./pages/Results";
 
 export const router = createBrowserRouter(
     createRoutesFromElements(
@@ -22,6 +23,7 @@ export const router = createBrowserRouter(
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/results" element={<Results />} />
       </Route>
     )
 );
