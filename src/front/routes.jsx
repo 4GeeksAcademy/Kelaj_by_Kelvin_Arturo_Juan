@@ -12,6 +12,7 @@ import { Register } from "./pages/Register";
 import { Login } from "./pages/Login";
 import Checkout from "./pages/Checkout";
 import { Results } from "./pages/Results";
+import { AdminFeatured } from "./pages/AdminFeatured";
 
 export const router = createBrowserRouter(
     createRoutesFromElements(
@@ -24,6 +25,7 @@ export const router = createBrowserRouter(
         <Route path="/register" element={<Register />} />
         <Route path="/login" element={<Login />} />
         <Route path="/results" element={<Results />} />
+        <Route path="/admin/featured" element={<AdminFeatured />} />
       </Route>
     )
 );

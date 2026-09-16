@@ -1,4 +1,11 @@
 export const initialStore = () => {
+  let savedUser = null
+  let savedToken = localStorage.getItem("token") || null
+  try {
+    savedUser = JSON.parse(localStorage.getItem("user") || "null")
+  } catch (e) {
+    savedUser = null
+  }
   return {
     message: null,
     todos: [
@@ -13,8 +20,8 @@ export const initialStore = () => {
         background: null,
       }
     ],
-    user: null,
-    token: null
+    user: savedUser,
+    token: savedToken
   }
 }
 

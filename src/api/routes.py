@@ -564,7 +564,7 @@ def search_services():
 @jwt_required()
 def admin_list_services():
     user = db.session.get(User, int(get_jwt_identity()))
-    if not user or user.role != 'admin':
+    if not user or not any(r.role == 'admin' for r in user.roles):
         return jsonify({"error": "No autorizado"}), 403
     services = Service.query.order_by(Service.id.desc()).all()
     return jsonify([{
@@ -581,7 +581,7 @@ def admin_list_services():
 @jwt_required()
 def toggle_service_featured(service_id):
     user = db.session.get(User, int(get_jwt_identity()))
-    if not user or user.role != 'admin':
+    if not user or not any(r.role == 'admin' for r in user.roles):
         return jsonify({"error": "No autorizado"}), 403
     service = db.session.get(Service, service_id)
     if not service:

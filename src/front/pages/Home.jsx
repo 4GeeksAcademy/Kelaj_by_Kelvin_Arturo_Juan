@@ -1,18 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
-
-const categoryIcons = {
-    "Clases": "🎓",
-    "Reparaciones": "🔧",
-    "Consultoría": "💼",
-    "Salud": "🩺",
-    "Hogar": "🏠",
-    "Tecnología": "💻",
-    "Limpieza": "🧹",
-    "Transporte": "🚗",
-    "Belleza": "💄",
-    "Deportes": "⚽"
-}
+import { CategoryIcon, ClockIcon } from "../components/CategoryIcon"
 
 export const Home = () => {
     const [categories, setCategories] = useState([])
@@ -81,7 +69,7 @@ export const Home = () => {
                         <div key={cat.id} className="col-6 col-md-4 col-lg-3 mb-3">
                             <div className="card h-100 text-center shadow-sm border-0" style={{ borderRadius: 14, cursor: "pointer" }} onClick={() => navigate("/results?cat=" + cat.id)}>
                                 <div className="card-body d-flex flex-column align-items-center justify-content-center">
-                                    <span style={{ fontSize: "2.4rem" }}>{categoryIcons[cat.name] || "✨"}</span>
+                                    <CategoryIcon name={cat.name} />
                                     <h5 className="mt-2 mb-0">{cat.name}</h5>
                                     <small className="text-muted">{cat.subcategories.length} servicios</small>
                                 </div>
@@ -105,7 +93,7 @@ export const Home = () => {
                                     {s.media[0] ? (
                                         <img src={s.media[0].url} alt={s.title} style={{ width: "100%", height: 140, objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }} />
                                     ) : (
-                                        <span style={{ fontSize: "3rem" }}>{categoryIcons[s.subcategory ? s.subcategory.category_name : ""] || "🔨"}</span>
+                                        <CategoryIcon name={s.subcategory ? s.subcategory.category_name : ""} size={56} />
                                     )}
                                 </div>
                                 <div className="card-body">
@@ -118,7 +106,7 @@ export const Home = () => {
                                     <div className="d-flex align-items-center mt-2">
                                         <small className="text-muted">
                                             {s.provider && s.provider.image ? <img src={s.provider.image} alt="proveedor" style={{ width: 24, height: 24, borderRadius: "50%", objectFit: "cover", marginRight: 6 }} /> : null}
-                                            {s.estimated_duration ? <span>⏱ ~{s.estimated_duration} min</span> : null}
+                                            {s.estimated_duration ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><ClockIcon size={14} />~{s.estimated_duration} min</span> : null}
                                         </small>
                                     </div>
                                 </div>
