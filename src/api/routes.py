@@ -7,12 +7,12 @@ from api.utils import generate_sitemap, APIException
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import stripe
+import os
 
 api = Blueprint('api', __name__)
 
-# ============================================================
-# 🔹 AUTH
-# ============================================================
+# Configuración Stripe
+stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
 @api.route('/register', methods=['POST'])
 def register():
@@ -141,20 +141,64 @@ def become_provider():
         "provider_profile": provider_profile.serialize()
     }), 201
 
+# ============================
+# CREAR SETUP INTENT (GUARDAR TARJETA)
+# ============================
+@api.route('/stripe/setup-intent', methods=['POST'])
+@jwt_required()
+def create_setup_intent():
+    user_id = get_jwt_identity()
+    user = User.query.get(user_id)
+
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    # 1. Crear o recuperar Customer
+    if not user.stripe_customer_id:
+        customer = stripe.Customer.create(email=user.email)
+        user.stripe_customer_id = customer.id
+        db.session.commit()
+    else:
+        customer = stripe.Customer.retrieve(user.stripe_customer_id)
+
+    # 2. Crear SetupIntent
+    setup_intent = stripe.SetupIntent.create(
+        customer=customer.id,
+        payment_method_types=["card"]
+    )
+
+    return jsonify({
+        "client_secret": setup_intent.client_secret
+    }), 200
+
+
+# ============================
+# GUARDAR MÉTODO DE PAGO
+# ============================
 @api.route('/payment-methods', methods=['POST'])
 @jwt_required()
 def add_payment_method():
     user_id = get_jwt_identity()
     data = request.get_json()
 
-    required = ["provider", "token_id", "brand", "last_four_digits"]
+    required = ["provider", "payment_method_id", "brand", "last_four_digits"]
     if not all(k in data for k in required):
         return jsonify({"error": "Datos incompletos"}), 400
+
+    user = User.query.get(user_id)
+    if not user or not user.stripe_customer_id:
+        return jsonify({"error": "Cliente Stripe no encontrado"}), 400
+
+    # Asociar PaymentMethod al Customer en Stripe
+    stripe.PaymentMethod.attach(
+        data["payment_method_id"],
+        customer=user.stripe_customer_id
+    )
 
     method = PaymentMethod(
         user_id=user_id,
         provider=data["provider"],
-        token_id=data["token_id"],
+        stripe_payment_method_id=data["payment_method_id"],
         brand=data["brand"],
         last_four_digits=data["last_four_digits"]
     )
@@ -165,15 +209,19 @@ def add_payment_method():
     return jsonify(method.serialize()), 201
 
 
+# ============================
+# LISTAR MÉTODOS DE PAGO
+# ============================
 @api.route('/payment-methods', methods=['GET'])
 @jwt_required()
 def get_payment_methods():
     user_id = get_jwt_identity()
-
     methods = PaymentMethod.query.filter_by(user_id=user_id).all()
     return jsonify([m.serialize() for m in methods]), 200
 
-
+# ============================
+# ELIMINAR TARJETA GUARDADA
+# ============================
 @api.route('/payment-methods/<int:id>', methods=['DELETE'])
 @jwt_required()
 def delete_payment_method(id):
@@ -188,14 +236,16 @@ def delete_payment_method(id):
 
     return jsonify({"success": True}), 200
 
-
+# ============================
+# COBRO CON TARJETA NUEVA
+# ============================
 @api.route('/charge', methods=['POST'])
 @jwt_required()
 def create_charge():
     user_id = get_jwt_identity()
     data = request.get_json()
 
-    required = ["appointment_id", "amount", "token_id"]
+    required = ["appointment_id", "amount", "payment_method_id"]
     if not all(k in data for k in required):
         return jsonify({"error": "Datos incompletos"}), 400
 
@@ -203,23 +253,28 @@ def create_charge():
     if not appointment:
         return jsonify({"error": "Cita no encontrada"}), 404
 
+    user = User.query.get(user_id)
+    if not user.stripe_customer_id:
+        return jsonify({"error": "Cliente Stripe no encontrado"}), 400
+
     try:
-        # 1. Cobrar con Stripe usando token nuevo
-        charge = stripe.Charge.create(
+        # PaymentIntent con tarjeta nueva (confirmada en frontend)
+        payment_intent = stripe.PaymentIntent.create(
             amount=int(data["amount"] * 100),
             currency="eur",
-            source=data["token_id"],
-            description=f"Cita {appointment.id} - Servicio {appointment.service_id}"
+            customer=user.stripe_customer_id,
+            payment_method=data["payment_method_id"],
+            confirm=True,
+            off_session=False
         )
 
-        # 2. Registrar transacción en tu BD
         transaction = Transaction(
             appointment_id=appointment.id,
             user_id=user_id,
             amount=data["amount"],
             status="paid",
             provider="stripe",
-            provider_transaction_id=charge.id
+            provider_transaction_id=payment_intent.id
         )
 
         db.session.add(transaction)
@@ -227,7 +282,7 @@ def create_charge():
 
         return jsonify({
             "transaction_id": transaction.id,
-            "charge_id": charge.id
+            "payment_intent_id": payment_intent.id
         }), 201
 
     except stripe.error.CardError as e:
@@ -237,6 +292,9 @@ def create_charge():
         return jsonify({"error": "Error procesando el pago"}), 500
 
 
+# ============================
+# COBRO CON TARJETA GUARDADA
+# ============================
 @api.route('/charge/saved', methods=['POST'])
 @jwt_required()
 def create_charge_with_saved_method():
@@ -251,31 +309,35 @@ def create_charge_with_saved_method():
     if not appointment:
         return jsonify({"error": "Cita no encontrada"}), 404
 
-    payment_method = PaymentMethod.query.filter_by(
+    method = PaymentMethod.query.filter_by(
         id=data["payment_method_id"],
         user_id=user_id
     ).first()
 
-    if not payment_method:
+    if not method:
         return jsonify({"error": "Método de pago no encontrado"}), 404
 
+    user = User.query.get(user_id)
+    if not user.stripe_customer_id:
+        return jsonify({"error": "Cliente Stripe no encontrado"}), 400
+
     try:
-        # 1. Cobrar con Stripe usando token guardado
-        charge = stripe.Charge.create(
+        payment_intent = stripe.PaymentIntent.create(
             amount=int(data["amount"] * 100),
             currency="eur",
-            source=payment_method.token_id,
-            description=f"Cita {appointment.id} - Servicio {appointment.service_id}"
+            customer=user.stripe_customer_id,
+            payment_method=method.stripe_payment_method_id,
+            off_session=True,
+            confirm=True
         )
 
-        # 2. Registrar transacción
         transaction = Transaction(
             appointment_id=appointment.id,
             user_id=user_id,
             amount=data["amount"],
             status="paid",
             provider="stripe",
-            provider_transaction_id=charge.id
+            provider_transaction_id=payment_intent.id
         )
 
         db.session.add(transaction)
@@ -283,7 +345,7 @@ def create_charge_with_saved_method():
 
         return jsonify({
             "transaction_id": transaction.id,
-            "charge_id": charge.id
+            "payment_intent_id": payment_intent.id
         }), 201
 
     except stripe.error.CardError as e:
@@ -291,6 +353,99 @@ def create_charge_with_saved_method():
     except Exception as e:
         print(e)
         return jsonify({"error": "Error procesando el pago"}), 500
+    
+# PANEL PROFESIONAL: ROUTES
+@api.route('/provider/summary', methods=['GET'])
+@jwt_required()
+def provider_summary():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    # Total ganado
+    transactions = Transaction.query.join(Appointment).filter(
+        Appointment.service.has(provider_id=provider.id),
+        Transaction.status == "paid"
+    ).all()
+
+    total_earned = sum(t.amount for t in transactions)
+
+    # Ganado este mes
+    from datetime import datetime
+    now = datetime.now()
+    monthly_earned = sum(
+        t.amount for t in transactions
+        if t.transaction_date.month == now.month and t.transaction_date.year == now.year
+    )
+
+    # Citas
+    appointments = Appointment.query.join(Service).filter(
+        Service.provider_id == provider.id
+    ).all()
+
+    summary = {
+        "total_earned": float(total_earned),
+        "monthly_earned": float(monthly_earned),
+        "completed": len([a for a in appointments if a.status == "completed"]),
+        "pending": len([a for a in appointments if a.status == "pending"]),
+        "upcoming": len([a for a in appointments if a.status == "upcoming"]),
+        "in_progress": len([a for a in appointments if a.status == "in_progress"])
+    }
+
+    return jsonify(summary), 200
+
+@api.route('/provider/services', methods=['GET'])
+@jwt_required()
+def provider_services():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    services = Service.query.filter_by(provider_id=provider.id).all()
+    return jsonify([s.serialize() for s in services]), 200
+
+@api.route('/provider/services/<int:id>/toggle', methods=['PUT'])
+@jwt_required()
+def toggle_service(id):
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    service = Service.query.filter_by(id=id, provider_id=provider.id).first()
+    if not service:
+        return jsonify({"error": "Servicio no encontrado"}), 404
+
+    service.visible = not service.visible
+    db.session.commit()
+
+    return jsonify(service.serialize()), 200
+
+@api.route('/provider/appointments', methods=['GET'])
+@jwt_required()
+def provider_appointments():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    appointments = Appointment.query.join(Service).filter(
+        Service.provider_id == provider.id
+    ).all()
+
+    return jsonify([a.serialize() for a in appointments]), 200
+
+@api.route('/provider/transactions', methods=['GET'])
+@jwt_required()
+def provider_transactions():
+    user_id = get_jwt_identity()
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    transactions = Transaction.query.join(Appointment).join(Service).filter(
+        Service.provider_id == provider.id
+    ).all()
+
+    return jsonify([t.serialize() for t in transactions]), 200
 
 #para obtener los perfiles publicos:
 
@@ -386,5 +541,3 @@ def search_providers():
         
     providers = search.all()
     return jsonify([provider.serialize() for provider in providers]), 200
-
-    
