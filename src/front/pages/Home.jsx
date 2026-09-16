@@ -1,52 +1,119 @@
-import React, { useEffect } from "react"
-import rigoImageUrl from "../assets/img/rigo-baby.jpg";
-import useGlobalReducer from "../hooks/useGlobalReducer.jsx";
+import React, { useEffect, useState } from "react"
+
+const categoryIcons = {
+    "Clases": "🎓",
+    "Reparaciones": "🔧",
+    "Consultoría": "💼",
+    "Salud": "🩺",
+    "Hogar": "🏠",
+    "Tecnología": "💻",
+    "Limpieza": "🧹",
+    "Transporte": "🚗",
+    "Belleza": "💄",
+    "Deportes": "⚽"
+}
 
 export const Home = () => {
+    const [categories, setCategories] = useState([])
+    const [services, setServices] = useState([])
+    const [search, setSearch] = useState("")
+    const [loading, setLoading] = useState(true)
 
-	const { store, dispatch } = useGlobalReducer()
+    const API = import.meta.env.VITE_BACKEND_URL
 
-	const loadMessage = async () => {
-		try {
-			const backendUrl = import.meta.env.VITE_BACKEND_URL
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const [catsRes, servRes] = await Promise.all([
+                    fetch(API + "/api/categories"),
+                    fetch(API + "/api/services/featured")
+                ])
+                setCategories(await catsRes.json())
+                setServices(await servRes.json())
+            } catch (error) {
+                console.error(error)
+            } finally {
+                setLoading(false)
+            }
+        }
+        load()
+    }, [])
 
-			if (!backendUrl) throw new Error("VITE_BACKEND_URL is not defined in .env file")
+    const filteredServices = services.filter(s =>
+        s.title.toLowerCase().includes(search.toLowerCase()) ||
+        (s.subcategory && s.subcategory.name || "").toLowerCase().includes(search.toLowerCase())
+    )
 
-			const response = await fetch(backendUrl + "/api/hello")
-			const data = await response.json()
+    return (
+        <div>
+            <section style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "white", padding: "70px 16px", textAlign: "center" }}>
+                <h1 style={{ fontSize: "2.8rem", fontWeight: 700 }}>Encuentra el servicio que necesitas</h1>
+                <p style={{ fontSize: "1.15rem", opacity: 0.9 }}>Clases, reparaciones, consultoría y más — cerca de ti.</p>
+                <div className="container" style={{ maxWidth: 560, marginTop: 24 }}>
+                    <div className="input-group">
+                        <input
+                            type="text"
+                            className="form-control form-control-lg"
+                            placeholder="¿Qué servicio buscas?"
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                        />
+                        <button className="btn btn-warning btn-lg" type="button">Buscar</button>
+                    </div>
+                </div>
+            </section>
 
-			if (response.ok) dispatch({ type: "set_hello", payload: data.message })
+            <section className="container py-5">
+                <h2 className="mb-4" style={{ fontWeight: 700 }}>Categorías</h2>
+                <div className="row">
+                    {loading ? (
+                        <p className="text-muted">Cargando categorías...</p>
+                    ) : categories.length === 0 ? (
+                        <p className="text-muted">Aún no hay categorías. Crea algunas en el backend.</p>
+                    ) : categories.map(cat => (
+                        <div key={cat.id} className="col-6 col-md-4 col-lg-3 mb-3">
+                            <div className="card h-100 text-center shadow-sm border-0" style={{ borderRadius: 14, cursor: "pointer" }}>
+                                <div className="card-body d-flex flex-column align-items-center justify-content-center">
+                                    <span style={{ fontSize: "2.4rem" }}>{categoryIcons[cat.name] || "✨"}</span>
+                                    <h5 className="mt-2 mb-0">{cat.name}</h5>
+                                    <small className="text-muted">{cat.subcategories.length} servicios</small>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </section>
 
-			return data
-
-		} catch (error) {
-			if (error.message) throw new Error(
-				`Could not fetch the message from the backend.
-				Please check if the backend is running and the backend port is public.`
-			);
-		}
-
-	}
-
-	useEffect(() => {
-		loadMessage()
-	}, [])
-
-	return (
-		<div className="text-center mt-5">
-			<h1 className="display-4">Hello Rigo!!</h1>
-			<p className="lead">
-				<img src={rigoImageUrl} className="img-fluid rounded-circle mb-3" alt="Rigo Baby" />
-			</p>
-			<div className="alert alert-info">
-				{store.message ? (
-					<span>{store.message}</span>
-				) : (
-					<span className="text-danger">
-						Loading message from the backend (make sure your python 🐍 backend is running)...
-					</span>
-				)}
-			</div>
-		</div>
-	);
-}; 
+            <section className="container pb-5">
+                <h2 className="mb-4" style={{ fontWeight: 700 }}>Servicios destacados</h2>
+                <div className="row">
+                    {loading ? (
+                        <p className="text-muted">Cargando servicios...</p>
+                    ) : filteredServices.length === 0 ? (
+                        <p className="text-muted">{search ? "No se encontraron servicios con esa búsqueda." : "Aún no hay servicios destacados."}</p>
+                    ) : filteredServices.map(s => (
+                        <div key={s.id} className="col-12 col-md-6 col-lg-4 mb-3">
+                            <div className="card h-100 shadow-sm border-0" style={{ borderRadius: 14 }}>
+                                <div style={{ height: 140, background: "linear-gradient(120deg, #e0e7ff, #f3e8ff)", display: "flex", alignItems: "center", justifyContent: "center", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+                                    {s.media[0] ? (
+                                        <img src={s.media[0].url} alt={s.title} style={{ width: "100%", height: 140, objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }} />
+                                    ) : (
+                                        <span style={{ fontSize: "3rem" }}>{categoryIcons[s.subcategory ? s.subcategory.category_name : ""] || "🔨"}</span>
+                                    )}
+                                </div>
+                                <div className="card-body">
+                                    <h5 className="card-title mb-1">{s.title}</h5>
+                                    <small className="text-muted">{s.subcategory ? s.subcategory.name : "Sin categoría"}</small>
+                                    <div className="mt-2 d-flex justify-content-between align-items-center">
+                                        <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>${s.price}</span>
+                                        <span className="badge bg-warning text-dark">★ {s.reviews_data.average_rating}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </section>
+        </div>
+    )
+}

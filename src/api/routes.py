@@ -2,7 +2,7 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, Service, Transaction, Appointment, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod
+from api.models import db, User, Service, Transaction, Appointment, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review
 from api.utils import generate_sitemap, APIException
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
@@ -24,7 +24,9 @@ def register():
     name = body.get("name")
     email = body.get("email")
     password = body.get("password")
-    role = body.get("role", "buyer")  # default role is buyer
+    role = body.get("role", "buyer")  # Default a buyer
+    city = body.get("city")
+    phone = body.get("phone")
 
     if not name or not email or not password:
         return jsonify({"message": "nombre, email, password son requeridos"}), 400
@@ -40,10 +42,15 @@ def register():
         name=name,
         email=email,
         password_hash=generate_password_hash(password),
-        is_provider=(role == "provider")
+        is_provider=(role == "provider"),
+        role=role,
+        city=city,
+        phone=phone
     )
+    
     db.session.add(new_user)
     db.session.commit()
+    
     if role == "provider":
         provider_profile = ProviderProfile(user_id=new_user.id)
         db.session.add(provider_profile)
@@ -76,6 +83,18 @@ def login():
         user.id), additional_claims={"roles": roles})
 
     return jsonify({"message": "login exitoso", "token": access_token, "user": user.serialize()}), 200
+
+
+@api.route('/services/featured', methods=['GET'])
+def featured_services():
+    services = Service.query.filter_by(visible=True).order_by(Service.id.desc()).limit(6).all()
+    return jsonify([s.serialize() for s in services]), 200
+
+
+@api.route('/categories', methods=['GET'])
+def get_categories():
+    categories = Category.query.all()
+    return jsonify([c.serialize() for c in categories]), 200
 
 @api.route('/become-provider', methods=['POST'])
 @jwt_required()
@@ -315,6 +334,7 @@ def toggle_follow(user_id):
     
 #sistema de reviews:
 
+@api.route('/appointments/<int:appointment_id>/reviews', methods=['POST'])
 @jwt_required()
 def create_review(appointment_id):
     current_user_id = get_jwt_identity()
