@@ -1,5 +1,14 @@
 import { useState, useEffect } from "react";
+import {
+  getServiceById,
+  getAvailability,
+  createAppointment,
+  createTransaction,
+} from "../services/services";
 import "./Checkout.css";
+import { addPaymentMethod } from "../services/paymentMethods";
+import { getPaymentMethods } from "../services/paymentMethods";
+
 
 export default function Checkout({ serviceId }) {
 
@@ -11,21 +20,46 @@ export default function Checkout({ serviceId }) {
   const [availabilityList, setAvailabilityList] = useState([]);
   const [selectedSlot, setSelectedSlot] = useState(null);
   const [clientData, setClientData] = useState({ name: "", email: "", phone: "" });
-  const [reservationId, setReservationId] = useState(null);
-  const [transactionId, setTransactionId] = useState(null);
+  const [appointmentId, setAppointmentId] = useState(null);
+  const [transactionId, setTransactionId] = useState(null)
+  const [saveCard, setSaveCard] = useState(false);
+  const [paymentMethods, setPaymentMethods] = useState([]);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
 
-  // Dark mode
-  const [darkMode, setDarkMode] = useState(false);
 
   // ============================
-  // CARGAR SERVICIO
+  // AUTOCOMPLETADO USER LOGUEADO Y CARGAR SERVICIO
   // ============================    
   useEffect(() => {
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/services/${serviceId}`)
-      .then(res => res.json())
-      .then(data => setService(data));
+    const loggedUser = JSON.parse(localStorage.getItem("user"));
+    if (loggedUser) {
+      setClientData({
+        name: loggedUser.name || "",
+        email: loggedUser.email || "",
+        phone: loggedUser.phone || ""
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    getServiceById(serviceId).then(setService).catch(console.error);
   }, [serviceId]);
 
+  // ============================
+  // MONTAR FORMULARIO DE STRIPE EN STEP 5
+  // ============================
+  useEffect(() => {
+    getPaymentMethods().then(setPaymentMethods);
+  }, []);
+
+  useEffect(() => {
+    if (step === 5) {
+      const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+      const elements = stripe.elements();
+      const cardElement = elements.create("card");
+      cardElement.mount("#card-element");
+    }
+  }, [step]);
 
   // ============================
   // Skeleton loader mientras carga
@@ -52,70 +86,93 @@ export default function Checkout({ serviceId }) {
   const total = service.price + commission;
 
   // ============================
-  // CREAR RESERVA
+  // CREAR CITA
   // ============================
-  const createReservation = () => {
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/reservations`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        client_id: 1, // ID del cliente logueado
-        service_id: service.id,
-        availability_id: selectedSlot.id,
-        date: selectedSlot.date,
-        start_time: selectedSlot.start_time,
-        end_time: selectedSlot.end_time,
-        total_price: total
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        setReservationId(data.reservation_id);
-        setStep(5);
-      });
+  const handleAppointment = async () => {
+    const date_time = `${selectedSlot.date}T${selectedSlot.start_time}:00`;
+
+    const data = {
+      client_id: JSON.parse(localStorage.getItem("user")).id,
+      service_id: service.id,
+      date_time: date_time
+    };
+
+    const res = await createAppointment(data);
+    setAppointmentId(res.appointment_id);
+
+    // Si NO tiene tarjetas guardadas → ir directo a Stripe
+    if (paymentMethods.length === 0) {
+      setStep(6);
+    } else {
+      // Si SÍ tiene tarjetas guardadas → mostrar selección
+      setStep(5);
+    }
   };
 
   // ============================
-  // CREAR TRANSACCIÓN
+  // PAGO CON TARJETA GUARDADA
   // ============================
-  const createTransaction = () => {
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/transactions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        reservation_id: reservationId,
-        amount: total
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        setTransactionId(data.transaction_id);
-        setStep(6);
-      });
+  const handleTransactionWithSavedCard = async () => {
+    const res = await createTransaction({
+      appointment_id: appointmentId,
+      amount: total,
+      payment_method_id: selectedPaymentMethod.id
+    });
+
+    setTransactionId(res.transaction_id);
+    setStep(7);
   };
 
   // ============================
-  // CONFIRMAR PAGO + RESERVA
+  // PAGO CON TARJETA NUEVA (STRIPE)
   // ============================
-  const confirmPayment = () => {
-    // Confirmar transacción
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/transactions/${transactionId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "paid" })
-    })
-      .then(res => res.json())
-      .then(data => console.log("Transacción confirmada:", data));
+  const handleTransaction = async () => {
+    const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
+    const elements = stripe.elements();
+    const cardElement = elements.getElement("card");
 
-    // Confirmar reserva
-    fetch(`${import.meta.env.VITE_BACKEND_URL}/reservations/${reservationId}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "confirmed" })
-    })
-      .then(res => res.json())
-      .then(data => console.log("Reserva confirmada:", data));
+    // 1. Crear token solo si el usuario usa tarjeta nueva
+    let token = null;
+    if (!selectedPaymentMethod) {
+      const { token: stripeToken, error } = await stripe.createToken(cardElement);
+      if (error) {
+        alert("Error al procesar la tarjeta");
+        return;
+      }
+      token = stripeToken;
+    }
 
+    // 2️. Cobrar según el tipo de tarjeta
+    let res;
+
+    if (selectedPaymentMethod) {
+      // Pagar con tarjeta guardada
+      res = await createTransactionWithSaved({
+        appointment_id: appointmentId,
+        amount: total,
+        payment_method_id: selectedPaymentMethod.id
+      });
+    } else {
+      // Pagar con tarjeta nueva
+      res = await createTransaction({
+        appointment_id: appointmentId,
+        amount: total,
+        token_id: token.id
+      });
+
+      // Guardar tarjeta si el usuario quiere
+      if (saveCard) {
+        await addPaymentMethod({
+          provider: "stripe",
+          token_id: token.id,
+          brand: token.card.brand,
+          last_four_digits: token.card.last4
+        });
+      }
+    }
+
+    // 3️. Actualizar estado y pasar al paso final
+    setTransactionId(res.transaction_id);
     setStep(7);
   };
 
@@ -133,18 +190,7 @@ export default function Checkout({ serviceId }) {
         <div className="col-md-6 col-lg-5">
 
           {/* CARD PRINCIPAL */}
-          <div className={`checkout-card ${darkMode ? "dark" : ""}`}>
-
-            {/* BOTÓN DARK MODE */}
-            <div className="text-end mb-3">
-              <button
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => setDarkMode(!darkMode)}
-              >
-                {darkMode ? "Modo claro" : "Modo oscuro"}
-                <i className={`bi ${darkMode ? "bi-sun" : "bi-moon"} ms-2`}></i>
-              </button>
-            </div>
+          <div className="checkout-card">
 
             {/* PROGRESS BAR CIRCULAR CON ETIQUETAS */}
             <div className="checkout-steps mb-4">
@@ -193,24 +239,18 @@ export default function Checkout({ serviceId }) {
   if (step === 1)
     return (
       <Container>
-        <h2 className="checkout-title">
-          <i className="bi bi-scissors icon-left"></i>
-          {service.title}
-        </h2>
-
+        <h2 className="checkout-title">{service.title}</h2>
         <p>{service.description}</p>
         <p className="fw-bold">Precio base: {service.price} €</p>
 
-        <button className="checkout-btn checkout-btn-primary w-100 mt-3"
+        <button
+          className="checkout-btn checkout-btn-primary w-100 mt-3"
           onClick={() => {
-            fetch(`${import.meta.env.VITE_BACKEND_URL}/services/${service.id}/availability`)
-              .then(res => res.json())
-              .then(data => {
-                setAvailabilityList(data);
-                setStep(2);
-              });
-          }}>
-          Seleccionar fecha <i className="bi bi-calendar-check icon-right"></i>
+            getAvailability(service.id).then(setAvailabilityList);
+            setStep(2);
+          }}
+        >
+          Seleccionar fecha
         </button>
       </Container>
     );
@@ -218,49 +258,54 @@ export default function Checkout({ serviceId }) {
   if (step === 2)
     return (
       <Container>
-        <h2 className="checkout-title">
-          <i className="bi bi-clock icon-left"></i>
-          Selecciona fecha y hora
-        </h2>
+        <h2 className="checkout-title">Selecciona fecha y hora</h2>
 
-        {availabilityList.length === 0 ? (
-          <p>No hay horarios disponibles.</p>
-        ) : (
-          availabilityList.map(slot => (
-            <button
-              key={slot.id}
-              className="slot-btn btn btn-outline-primary w-100 mb-2"
-              onClick={() => {
-                setSelectedSlot(slot);
-                setStep(3);
-              }}>
-              <i className="bi bi-calendar-event icon-left"></i>
-              {slot.date} — {slot.start_time}
-            </button>
-          ))
-        )}
+        {availabilityList.map(slot => (
+          <button
+            key={slot.id}
+            className="slot-btn btn btn-outline-primary w-100 mb-2"
+            onClick={() => {
+              setSelectedSlot(slot);
+              setStep(3);
+            }}
+          >
+            {slot.date} — {slot.start_time}
+          </button>
+        ))}
       </Container>
     );
 
   if (step === 3)
     return (
       <Container>
-        <h2 className="checkout-title">
-          <i className="bi bi-person icon-left"></i>
-          Tus datos
-        </h2>
+        <h2 className="checkout-title">Tus datos</h2>
 
-        <input className="checkout-input form-control mb-2" placeholder="Nombre"
-          onChange={e => setClientData({ ...clientData, name: e.target.value })} />
+        <input
+          className="checkout-input form-control mb-2"
+          placeholder="Nombre"
+          value={clientData.name}
+          onChange={e => setClientData({ ...clientData, name: e.target.value })}
+        />
 
-        <input className="checkout-input form-control mb-2" placeholder="Email"
-          onChange={e => setClientData({ ...clientData, email: e.target.value })} />
+        <input
+          className="checkout-input form-control mb-2"
+          placeholder="Email"
+          value={clientData.email}
+          onChange={e => setClientData({ ...clientData, email: e.target.value })}
+        />
 
-        <input className="checkout-input form-control mb-3" placeholder="Teléfono"
-          onChange={e => setClientData({ ...clientData, phone: e.target.value })} />
+        <input
+          className="checkout-input form-control mb-3"
+          placeholder="Teléfono"
+          value={clientData.phone}
+          onChange={e => setClientData({ ...clientData, phone: e.target.value })}
+        />
 
-        <button className="checkout-btn checkout-btn-primary w-100" onClick={() => setStep(4)}>
-          Continuar <i className="bi bi-arrow-right-circle icon-right"></i>
+        <button
+          className="checkout-btn checkout-btn-primary w-100"
+          onClick={() => setStep(4)}
+        >
+          Continuar
         </button>
       </Container>
     );
@@ -268,10 +313,7 @@ export default function Checkout({ serviceId }) {
   if (step === 4)
     return (
       <Container>
-        <h2 className="checkout-title">
-          <i className="bi bi-receipt icon-left"></i>
-          Confirmación
-        </h2>
+        <h2 className="checkout-title">Confirmación</h2>
 
         <p><strong>Servicio:</strong> {service.title}</p>
         <p><strong>Fecha:</strong> {selectedSlot.date}</p>
@@ -280,8 +322,11 @@ export default function Checkout({ serviceId }) {
         <p><strong>Comisión Jake (5%):</strong> {commission.toFixed(2)} €</p>
         <p><strong>Total:</strong> {total.toFixed(2)} €</p>
 
-        <button className="checkout-btn checkout-btn-success w-100 mt-3" onClick={createReservation}>
-          Ir al pago <i className="bi bi-credit-card icon-right"></i>
+        <button
+          className="checkout-btn checkout-btn-success w-100 mt-3"
+          onClick={handleAppointment}
+        >
+          Ir al pago
         </button>
       </Container>
     );
@@ -289,44 +334,111 @@ export default function Checkout({ serviceId }) {
   if (step === 5)
     return (
       <Container>
-        <h2 className="checkout-title">
-          <i className="bi bi-shield-check icon-left"></i>
-          Pago seguro
-        </h2>
+        <h2 className="checkout-title">Método de pago</h2>
 
-        <button className="checkout-btn checkout-btn-success w-100" onClick={createTransaction}>
-          Pagar ahora <i className="bi bi-check2-circle icon-right"></i>
-        </button>
+        {/* Si tiene tarjetas guardadas */}
+        {paymentMethods.length > 0 && (
+          <>
+            <h5 className="mb-3">Tus tarjetas guardadas</h5>
+
+            {paymentMethods.map(pm => (
+              <button
+                key={pm.id}
+                className="slot-btn w-100 mb-2"
+                onClick={() => {
+                  setSelectedPaymentMethod(pm);
+                  setStep(6); // Ir directamente al pago
+                }}
+              >
+                {pm.brand.toUpperCase()} •••• {pm.last_four_digits}
+              </button>
+            ))}
+
+            <button
+              className="checkout-btn checkout-btn-primary w-100 mt-3"
+              onClick={() => setStep(6)} // Usar nueva tarjeta
+            >
+              Usar otra tarjeta
+            </button>
+          </>
+        )}
+
+        {/* Si NO tiene tarjetas guardadas */}
+        {paymentMethods.length === 0 && (
+          <>
+            <p>No tienes tarjetas guardadas.</p>
+            <button
+              className="checkout-btn checkout-btn-primary w-100 mt-3"
+              onClick={() => setStep(6)}
+            >
+              Añadir tarjeta y pagar
+            </button>
+          </>
+        )}
       </Container>
     );
+
 
   if (step === 6)
     return (
       <Container>
-        <h2 className="checkout-title">
-          <i className="bi bi-hourglass-split icon-left"></i>
-          Procesando pago...
-        </h2>
+        <h2 className="checkout-title">Pago seguro</h2>
 
-        <button className="checkout-btn checkout-btn-primary w-100" onClick={confirmPayment}>
-          Confirmar pago <i className="bi bi-check-circle icon-right"></i>
-        </button>
+        {/* Si el usuario eligió tarjeta guardada */}
+        {selectedPaymentMethod && (
+          <>
+            <p>Pagando con:</p>
+            <p className="fw-bold">
+              {selectedPaymentMethod.brand.toUpperCase()} •••• {selectedPaymentMethod.last_four_digits}
+            </p>
+
+            <button
+              className="checkout-btn checkout-btn-success w-100 mt-4"
+              onClick={handleTransactionWithSavedCard}
+            >
+              Pagar ahora
+            </button>
+          </>
+        )}
+
+        {/* Si el usuario quiere tarjeta nueva */}
+        {!selectedPaymentMethod && (
+          <>
+            <div id="card-element" className="stripe-card-element"></div>
+
+            <label className="mt-3 d-flex align-items-center">
+              <input
+                type="checkbox"
+                checked={saveCard}
+                onChange={() => setSaveCard(!saveCard)}
+                className="me-2"
+              />
+              Guardar tarjeta para futuras compras
+            </label>
+
+            <button
+              className="checkout-btn checkout-btn-success w-100 mt-4"
+              onClick={handleTransaction}
+            >
+              Pagar ahora
+            </button>
+          </>
+        )}
       </Container>
     );
 
   if (step === 7)
     return (
       <Container>
-        <h2 className="checkout-title text-success">
-          <i className="bi bi-check2-all icon-left"></i>
-          ¡Reserva confirmada!
-        </h2>
+        <h2 className="checkout-title text-success">¡Reserva confirmada!</h2>
 
         <p>Tu pago ha sido procesado correctamente.</p>
 
-        <button className="checkout-btn checkout-btn-secondary w-100"
-          onClick={() => window.location.href = "/"}>
-          Volver al inicio <i className="bi bi-house-door icon-right"></i>
+        <button
+          className="checkout-btn checkout-btn-secondary w-100"
+          onClick={() => window.location.href = "/"}
+        >
+          Volver al inicio
         </button>
       </Container>
     );
