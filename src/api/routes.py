@@ -2,6 +2,7 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 from flask import Flask, request, jsonify, url_for, Blueprint
+from sqlalchemy import func
 from api.models import db, User, Service, Transaction, Appointment, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review
 from api.utils import generate_sitemap, APIException
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -527,17 +528,41 @@ def create_review(appointment_id):
 
 @api.route('/search/providers', methods=['GET'])
 def search_providers():
-    query = request.args.get('q', '').lower()
+    query_text = request.args.get('q', '').lower()
     location = request.args.get('location', '').lower()
     
-    # Iniciar búsqueda base
-    search = User.query.filter_by(is_active=True, is_provider=True)
+    search = db.session.query(
+        User, 
+        func.coalesce(func.avg(Review.rating), 0).label('avg_rating')
+    ).select_from(User)\
+     .join(ProviderProfile, User.id == ProviderProfile.user_id)\
+     .outerjoin(Service, ProviderProfile.id == Service.provider_id)\
+     .outerjoin(Appointment, Service.id == Appointment.service_id)\
+     .outerjoin(Review, Appointment.id == Review.appointment_id)\
+     .filter(User.is_active == True, User.is_provider == True)
     
-    if query:
-        search = search.filter(User.name.ilike(f'%{query}%') | User.last_name.ilike(f'%{query}%'))
+    if query_text:
+        search = search.filter(
+            db.or_(
+                User.name.ilike(f'%{query_text}%'),
+                User.last_name.ilike(f'%{query_text}%'),
+                Service.title.ilike(f'%{query_text}%')
+            )
+        )
         
     if location:
-        search = search.join(ProviderProfile).filter(ProviderProfile.coverage_area.ilike(f'%{location}%'))
+        search = search.filter(ProviderProfile.coverage_area.ilike(f'%{location}%'))
         
-    providers = search.all()
-    return jsonify([provider.serialize() for provider in providers]), 200
+    search = search.group_by(User.id)
+    
+    search = search.order_by(db.desc('avg_rating'))
+    
+    results = search.all()
+    
+    response = []
+    for user, avg_rating in results:
+        user_data = user.serialize()
+        user_data['average_rating'] = float(avg_rating) 
+        response.append(user_data)
+
+    return jsonify(response), 200

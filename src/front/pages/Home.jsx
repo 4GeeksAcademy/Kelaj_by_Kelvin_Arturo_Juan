@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react"
+import "../styles/Search.css"
 
 const categoryIcons = {
     "Clases": "🎓",
@@ -46,6 +47,37 @@ export const Home = () => {
 
     return (
         <div>
+            <header className="text-center mb-5">
+                <h1 className="fw-bold text dark mb-3" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem", letterSpacing: "-1px" }}>Todo lo que buscas, en un solo sitio.</h1>
+                <p className="text-secondary mx-auto" style={{maxWidth: "700px", fontSize:"1.1rem"}}>
+                    ¿Necesitas ayuda? Con <span className="fw-bold text-dark">Jake</span> puedes solucionarlo rápido y fácil: desde limpieza, reparaciones y mucho más.
+                </p>
+            </header>
+
+            <section className="search-container mb-5">
+                    <div className="bg-white rounded-4 rounded-md-pill shadow-sm p-2 d-flex flex-column flex-md-row align-items-center">
+
+                        <div className="flex-grow-1 w-100 position-relative py-2 py-md-0 px-3">
+                            <input type="text" className="form-control border-0 search-input bg-transparent text-center text-md-start" placeholder="¿Qué servicio estás buscando?"></input>
+                        </div>
+
+                        <div className="d-none d-md-block border-end py-3" style={{borderColor: "#eaeaea !important"}}></div>
+
+                        <hr className="d-md-none w-100 my-1 text-light"></hr>
+
+                        <div className="flex-grow-1 w-100 position-relative py-2 py-md-0 px-3">
+                            <input type="text" className="form-control border-0 search-input bg-transparent text-center text-md-start" placeholder="Ciudad"></input>
+                        </div>
+
+                        <div className="w-100 text-end px-2" style={{maxWidth: "fit-content"}}>
+                            <button className="btn btn-primary rounded-pill w-100 px-4 py-2 fw-semibold d-flex align-items-center justify-content-center gap-2">
+                                <i className="bi bi-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+
             <section style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", color: "white", padding: "70px 16px", textAlign: "center" }}>
                 <h1 style={{ fontSize: "2.8rem", fontWeight: 700 }}>Encuentra el servicio que necesitas</h1>
                 <p style={{ fontSize: "1.15rem", opacity: 0.9 }}>Clases, reparaciones, consultoría y más — cerca de ti.</p>
