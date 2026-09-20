@@ -12,6 +12,7 @@ import { Register } from "./pages/Register";
 import { Login } from "./pages/Login";
 import Checkout from "./pages/Checkout";
 import { Search } from "./pages/Search"; 
+import ProfessionalDashboard from "./pages/ProfessionalDashboard";
 
 export const router = createBrowserRouter(
     createRoutesFromElements(
@@ -23,6 +24,7 @@ export const router = createBrowserRouter(
         <Route path="/demo" element={<Demo />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/professional-panel" element={<ProfessionalDashboard />} />
         <Route path="/login" element={<Login />} />
       </Route>
     )

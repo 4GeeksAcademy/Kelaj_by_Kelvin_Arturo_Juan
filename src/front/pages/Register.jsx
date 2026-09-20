@@ -9,7 +9,7 @@ export const Register = () => {
     name: "",
     email: "",
     password: "",
-    role: "client"
+    role: "buyer"
   });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -24,7 +24,7 @@ export const Register = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/register`, {
+      const response = await fetch(`${backendUrl}/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)
@@ -93,7 +93,7 @@ export const Register = () => {
             value={formData.role}
             onChange={handleChange}
           >
-            <option value="client">Cliente</option>
+            <option value="buyer">Cliente</option>
             <option value="provider">Proveedor</option>
           </select>
         </div>
