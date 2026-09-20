@@ -2,9 +2,6 @@ import React from "react";
 import { Link, useNavigate } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import "../styles/Search.css"
-import useGlobalReducer from "../hooks/useGlobalReducer";
-import { useNavigate } from "react-router-dom";
-
 
 export const Navbar = () => {
 	const { store, dispatch } = useGlobalReducer();
