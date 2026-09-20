@@ -71,9 +71,9 @@ export const Home = () => {
     return (
         <div>
             <header className="text-center mb-5">
-                <h1 className="fw-bold text dark mb-3" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem", letterSpacing: "-1px" }}>Todo lo que buscas, en un solo sitio.</h1>
+                <h1 className="fw-bold text dark mb-3 mt-5" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem", letterSpacing: "-1px" }}>Todo lo que buscas, en un solo sitio.</h1>
                 <p className="text-secondary mx-auto" style={{ maxWidth: "700px", fontSize: "1.1rem" }}>
-                    ¿Necesitas ayuda? Con <span className="fw-bold text-dark">Jake</span> puedes solucionarlo rápido y fácil: desde limpieza, reparaciones y mucho más.
+                    ¿Necesitas ayuda? Con <span className="fw-bold text-dark">Kelaj</span> puedes solucionarlo rápido y fácil: desde limpieza, reparaciones y mucho más.
                 </p>
             </header>
 
@@ -329,7 +329,6 @@ export const Home = () => {
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
     )

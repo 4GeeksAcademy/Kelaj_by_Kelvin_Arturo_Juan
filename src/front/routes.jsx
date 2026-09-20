@@ -10,8 +10,10 @@ import { Demo } from "./pages/Demo";
 import { Privacy } from "./pages/Privacy";
 import { Register } from "./pages/Register";
 import { Login } from "./pages/Login";
+import { Profile } from "./pages/Profile";
 import Checkout from "./pages/Checkout";
 import { Search } from "./pages/Search"; 
+import { BecomeProvider } from "./pages/BecomeProvider";
 import ProfessionalDashboard from "./pages/ProfessionalDashboard";
 
 export const router = createBrowserRouter(
@@ -19,6 +21,8 @@ export const router = createBrowserRouter(
       <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
         <Route path= "/" element={<Home />} />
         <Route path="/search" element={<Search />} /> 
+        <Route path="/profile/:theId" element={<Profile />} />
+        <Route path="/profile/:theId/become-provider" element={<BecomeProvider />} />
         <Route path="/single/:theId" element={ <Single />} />  
         <Route path="/checkout" element={<Checkout serviceId={4}/>} />
         <Route path="/demo" element={<Demo />} />
