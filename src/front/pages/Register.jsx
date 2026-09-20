@@ -9,7 +9,7 @@ export const Register = () => {
     name: "",
     email: "",
     password: "",
-    role: "client"
+    role: "buyer"
   });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -93,7 +93,7 @@ export const Register = () => {
             value={formData.role}
             onChange={handleChange}
           >
-            <option value="client">Cliente</option>
+            <option value="buyer">Cliente</option>
             <option value="provider">Proveedor</option>
           </select>
         </div>
