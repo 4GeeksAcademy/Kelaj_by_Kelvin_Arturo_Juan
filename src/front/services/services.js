@@ -1,5 +1,3 @@
-// src/services/services.js
-
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // Obtener un servicio por ID

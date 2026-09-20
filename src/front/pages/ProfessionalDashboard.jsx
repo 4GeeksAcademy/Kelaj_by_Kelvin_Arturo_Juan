@@ -5,7 +5,7 @@ import Reservations from "../components/ProfessionalPanel/Reservations";
 import History from "../components/ProfessionalPanel/History";
 import Sidebar from "../components/Shared/Sidebar";
 import Header from "../components/Shared/Header";
-import "../styles/ProfessionalPanel.css";
+import "../styles/ProfesionalPanel.css";
 
 export default function ProfessionalDashboard() {
   const [activeSection, setActiveSection] = useState("summary");

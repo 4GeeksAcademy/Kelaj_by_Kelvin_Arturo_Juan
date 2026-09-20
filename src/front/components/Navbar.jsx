@@ -45,10 +45,61 @@ export const Navbar = () => {
 							</>
 						) : (
 							<>
-								<span className="fw-semibold text-dark">
-									👤 {store.user.name}
-								</span>
+								<div className="position-relative me-3">
+									<i className="bi bi-bell fs-5 text-secondary"></i>
+									<span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+										2
+									</span>
+								</div>
+								<div
+									className="dropdown d-inline-block position-relative"
+									onMouseEnter={(e) =>
+										e.currentTarget.querySelector(".dropdown-menu").classList.add("show")
+									}
+									onMouseLeave={(e) =>
+										e.currentTarget.querySelector(".dropdown-menu").classList.remove("show")
+									}
+								>
+									<span
+										className="fw-semibold text-dark dropdown-toggle d-flex align-items-center"
+										style={{ cursor: "pointer" }}
+									>
+										<i className="bi bi-person-fill me-1 text-primary"></i>
+										{store.user.name}
+									</span>
 
+									<ul className="dropdown-menu shadow-sm" style={{ transform: "translateX(-80px)" }}>
+										{store.user.role === "buyer" ? (
+											<li>
+												<button
+													className="dropdown-item"
+													onClick={() => navigate("/client-panel")}
+												>
+													Ir a mi panel
+												</button>
+											</li>
+										) : (
+											<>
+												<li>
+													<button
+														className="dropdown-item"
+														onClick={() => navigate("/professional-panel")}
+													>
+														Panel profesional
+													</button>
+												</li>
+												<li>
+													<button
+														className="dropdown-item"
+														onClick={() => navigate("/client-panel")}
+													>
+														Panel cliente
+													</button>
+												</li>
+											</>
+										)}
+									</ul>
+								</div>
 								<button
 									className="btn btn-outline-danger rounded-pill fw-semibold px-3 py-2"
 									onClick={handleLogout}
@@ -57,11 +108,9 @@ export const Navbar = () => {
 								</button>
 							</>
 						)}
-
 					</div>
 				</div>
 			</div>
 		</nav>
-
 	);
 };
