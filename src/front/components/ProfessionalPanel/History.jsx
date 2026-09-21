@@ -23,13 +23,18 @@ export default function History() {
         <option value="cancelled">Canceladas</option>
       </select>
 
-      {filtered.map(t => (
-        <div key={t.id} className="transaction-card">
-          <strong>{t.service_title}</strong>
-          <span>{t.amount} €</span>
-          <span>{new Date(t.transaction_date).toLocaleDateString()}</span>
-        </div>
-      ))}
+      {Array.isArray(filtered) && filtered.length > 0 ? (
+        filtered.map(t => (
+          <div key={t.id} className="transaction-card">
+            <strong>{t.service_title}</strong>
+            <span>{t.amount} €</span>
+            <span>{new Date(t.transaction_date).toLocaleDateString()}</span>
+          </div>
+        ))
+      ) : (
+        <p>No hay transacciones disponibles</p>
+      )}
+
     </div>
   );
 }

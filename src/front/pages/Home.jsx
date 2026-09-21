@@ -162,6 +162,148 @@ export const Home = () => {
                     ))}
                 </div>
             </section>
+
+            <h2 className="mt-5 mb-4" style={{ fontWeight: 700 }}>Servicios populares</h2>
+            <div className="row g-4 m-4">
+
+                {/* Tarjeta 1: Curso de Inglés */}
+                <div className="col-12 col-md-6 col-lg-3">
+                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
+                        <div style={{ height: 160, position: "relative" }}>
+                            {/* Imagen de muestra (puedes cambiar la URL por tus imágenes locales) */}
+                            <img
+                                src="https://images.unsplash.com/photo-1546410531-b4c4fa773d57?w=500&q=80"
+                                alt="Curso de Inglés"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
+                            />
+                            {/* Badge flotante de valoración */}
+                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
+                                <i className="bi bi-star-fill text-warning me-1"></i> 4.9
+                            </span>
+                        </div>
+                        <div className="card-body d-flex flex-column">
+                            <span className="text-primary fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Clases</span>
+                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
+                                Clases de Inglés (Conversación y B2/C1)
+                            </h6>
+                            <p className="text-muted small mb-3">
+                                <i className="bi bi-geo-alt-fill me-1"></i> Remoto / Online
+                            </p>
+                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                                <div className="d-flex align-items-center gap-2">
+                                    <img src="https://ui-avatars.com/api/?name=Emma+W&background=e0e7ff&color=4f46e5" alt="Profesor" className="rounded-circle" style={{ width: 28, height: 28 }} />
+                                    <small className="text-muted fw-semibold">Emma W.</small>
+                                </div>
+                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
+                                    15€<span className="text-muted fw-normal" style={{ fontSize: "0.8rem" }}>/h</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tarjeta 2: Manicura */}
+                <div className="col-12 col-md-6 col-lg-3">
+                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
+                        <div style={{ height: 160, position: "relative" }}>
+                            <img
+                                src="https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=500&q=80"
+                                alt="Manicura"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
+                            />
+                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
+                                <i className="bi bi-star-fill text-warning me-1"></i> 5.0
+                            </span>
+                        </div>
+                        <div className="card-body d-flex flex-column">
+                            <span className="text-danger fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Belleza</span>
+                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
+                                Manicura semipermanente y Nail Art
+                            </h6>
+                            <p className="text-muted small mb-3">
+                                <i className="bi bi-geo-alt-fill me-1"></i> Madrid Centro (A domicilio)
+                            </p>
+                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                                <div className="d-flex align-items-center gap-2">
+                                    <img src="https://ui-avatars.com/api/?name=Laura+G&background=fee2e2&color=dc2626" alt="Profesional" className="rounded-circle" style={{ width: 28, height: 28 }} />
+                                    <small className="text-muted fw-semibold">Laura G.</small>
+                                </div>
+                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
+                                    25€
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tarjeta 3: Reparaciones */}
+                <div className="col-12 col-md-6 col-lg-3">
+                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
+                        <div style={{ height: 160, position: "relative" }}>
+                            <img
+                                src="https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=500&q=80"
+                                alt="Reparaciones"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
+                            />
+                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
+                                <i className="bi bi-star-fill text-warning me-1"></i> 4.7
+                            </span>
+                        </div>
+                        <div className="card-body d-flex flex-column">
+                            <span className="text-success fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Hogar</span>
+                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
+                                Instalación y reparación de electrodomésticos
+                            </h6>
+                            <p className="text-muted small mb-3">
+                                <i className="bi bi-geo-alt-fill me-1"></i> Comunidad de Madrid
+                            </p>
+                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                                <div className="d-flex align-items-center gap-2">
+                                    <img src="https://ui-avatars.com/api/?name=Carlos+M&background=dcfce7&color=16a34a" alt="Técnico" className="rounded-circle" style={{ width: 28, height: 28 }} />
+                                    <small className="text-muted fw-semibold">Carlos M.</small>
+                                </div>
+                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
+                                    40€
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Tarjeta 4: Entrenador Personal */}
+                <div className="col-12 col-md-6 col-lg-3">
+                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
+                        <div style={{ height: 160, position: "relative" }}>
+                            <img
+                                src="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=500&q=80"
+                                alt="Deportes"
+                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
+                            />
+                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
+                                <i className="bi bi-star-half text-warning me-1"></i> 4.5
+                            </span>
+                        </div>
+                        <div className="card-body d-flex flex-column">
+                            <span className="text-info fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Deportes</span>
+                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
+                                Entrenador personal e hipertrofia
+                            </h6>
+                            <p className="text-muted small mb-3">
+                                <i className="bi bi-geo-alt-fill me-1"></i> Gimnasios / Aire libre
+                            </p>
+                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
+                                <div className="d-flex align-items-center gap-2">
+                                    <img src="https://ui-avatars.com/api/?name=David+R&background=cffafe&color=0891b2" alt="Entrenador" className="rounded-circle" style={{ width: 28, height: 28 }} />
+                                    <small className="text-muted fw-semibold">David R.</small>
+                                </div>
+                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
+                                    20€<span className="text-muted fw-normal" style={{ fontSize: "0.8rem" }}>/sesión</span>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     )
 }

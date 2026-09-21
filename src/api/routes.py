@@ -457,7 +457,28 @@ def get_user_profile(user_id):
     if not user:
         return jsonify({"error": "Usuario no encontrado"}), 404
     
-    return jsonify(user.serialize()), 200
+    user_data = user.serialize()
+    
+    if user.is_provider and user.providerprofile:
+        user_data["providerprofile"] = user.providerprofile.serialize()
+        
+    if not user.is_provider:
+        user_data["client_appointments"] = [{
+            "id": app.id,
+            "service_title": app.service.title if app.service else "Servicio Eliminado",
+            "provider_name": app.service.provider.user.name if app.service and app.service.provider else "Desconocido",
+            "date": app.date_time.strftime("%d/%m/%Y")
+        } for app in user.appointments if app.status == "completed"]
+        
+        user_data["client_reviews"] = [{
+            "id": app.review.id,
+            "rating": app.review.rating,
+            "comment": app.review.comment,
+            "service_title": app.service.title,
+            "date": app.review.created_at.strftime("%d/%m/%Y") if app.review.created_at else "Reciente"
+        } for app in user.appointments if app.review]
+
+    return jsonify(user_data), 200
 
 #para seguir y ser seguido:
 

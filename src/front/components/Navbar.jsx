@@ -23,6 +23,16 @@ export const Navbar = () => {
                     Kelaj
                 </Link>
                 <div className="ms-auto d-flex align-items-center gap-2">
+                    {isLogged && (
+                        <Link to={`/profile/${store.user.id}`}>
+                            <button className="btn btn-sm btn-outline-secondary">Mi perfil</button>
+                        </Link>
+                    )}
+                    {isLogged && store.user.is_provider && (
+                        <Link to="/professional-panel">
+                            <button className="btn btn-sm btn-outline-secondary">Panel profesional</button>
+                        </Link>
+                    )}
                     {isLogged && isAdmin && (
                         <Link to="/admin/featured">
                             <button className="btn btn-sm btn-warning">Panel destacados</button>

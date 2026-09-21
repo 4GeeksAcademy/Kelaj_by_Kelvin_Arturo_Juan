@@ -141,10 +141,9 @@ class ProviderProfile(db.Model):
 class PaymentMethod(db.Model):
     __tablename__ = "payment_methods"
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
     provider: Mapped[str] = mapped_column(String(20), nullable=False)
-    token_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    stripe_payment_method_id: Mapped[str] = mapped_column(String(120), nullable=False)
     brand: Mapped[str] = mapped_column(String(20), nullable=False)
     last_four_digits: Mapped[str] = mapped_column(String(4), nullable=False)
     created_at: Mapped[DateTime] = mapped_column(
