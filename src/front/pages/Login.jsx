@@ -23,7 +23,7 @@ export const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/login`, {
+      const response = await fetch(`${backendUrl}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData)

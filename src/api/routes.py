@@ -1,15 +1,24 @@
 """
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
+import cloudinary
+import cloudinary.uploader
 from flask import Flask, request, jsonify, url_for, Blueprint
 from sqlalchemy import func
-from api.models import db, User, Service, Transaction, Appointment, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review
+from api.models import db, User, UserRole, Service, Transaction, Appointment, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review
 from api.utils import generate_sitemap, APIException
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import stripe
 import os
 import random
+
+cloudinary.config(
+    cloud_name=os.getenv('CLOUDINARY_CLOUD_NAME'),
+    api_key=os.getenv('CLOUDINARY_API_KEY'),
+    api_secret=os.getenv('CLOUDINARY_API_SECRET'),
+    secure=True
+)
 
 api = Blueprint('api', __name__)
 
@@ -61,6 +70,119 @@ def register():
     return jsonify({"message": "usuario creado exitosamente", "user": new_user.serialize()}), 201
 
 
+@api.route('/users/<int:user_id>/profile_image', methods=['POST'])
+@jwt_required()
+def upload_profile_image(user_id):
+    current_user_id = get_jwt_identity()
+
+    if int(current_user_id) != user_id:
+        return jsonify({"error": "No autorizado para cambiar esta imagen"}), 403
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No se envió ninguna imagen"}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({"error": "Nombre de archivo vacío"}), 400
+
+    try:
+        upload_result = cloudinary.uploader.upload(file, folder="kelaj_profiles")
+        
+        image_url = upload_result.get('secure_url')
+
+        user = User.query.get(user_id)
+        user.profile_image = image_url
+        db.session.commit()
+
+        return jsonify({
+            "message": "Imagen de perfil actualizada",
+            "profile_image": image_url
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error subiendo la imagen: {str(e)}"}), 500
+
+
+@api.route('/users/<int:user_id>', methods=['PUT'])
+@jwt_required()
+def update_user_profile(user_id):
+    current_user_id = get_jwt_identity()
+
+    if int(current_user_id) != user_id:
+        return jsonify({"error": "No autorizado para editar este perfil"}), 403
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({"error": "No se enviaron datos"}), 400
+
+    if "name" in data:
+        user.name = data["name"]
+    if "last_name" in data:
+        user.last_name = data["last_name"]
+    if "phone" in data:
+        user.phone = data["phone"]
+    if "city" in data:
+        user.city = data["city"]
+
+    try:
+        db.session.commit()
+        return jsonify({
+            "message": "Perfil actualizado exitosamente", 
+            "user": user.serialize()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+
+
+@api.route('/users/<int:user_id>', methods=['DELETE'])
+@jwt_required()
+def delete_user(user_id):
+    current_user_id = get_jwt_identity()
+
+    if int(current_user_id) != user_id:
+        return jsonify({"error": "No autorizado para eliminar este perfil"}), 403
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    try:
+        UserRole.query.filter_by(user_id=user.id).delete()
+        PaymentMethod.query.filter_by(user_id=user.id).delete()
+        Transaction.query.filter_by(user_id=user.id).delete()
+        
+        user.followers.clear()
+        user.following.clear()
+
+        if user.providerprofile:
+            provider_id = user.providerprofile.id
+            
+            # Borramos primero las dependencias del proveedor
+            Service.query.filter_by(provider_id=provider_id).delete()
+            Availability.query.filter_by(provider_id=provider_id).delete()
+            ProviderPortfolio.query.filter_by(provider_id=provider_id).delete()
+            
+            db.session.delete(user.providerprofile)
+
+        db.session.delete(user)
+        db.session.commit()
+
+        return jsonify({"message": "Cuenta eliminada exitosamente"}), 200
+
+    except Exception as e:
+        db.session.rollback() # Si algo sale mal, revertimos todo para no corromper la BD
+        print(f"Error borrando usuario: {str(e)}")
+        return jsonify({"error": "Error interno al eliminar la cuenta"}), 500
+
+
 @api.route('/login', methods=['POST'])
 def login():
     body = request.get_json()
@@ -85,6 +207,32 @@ def login():
         user.id), additional_claims={"roles": roles})
 
     return jsonify({"message": "login exitoso", "token": access_token, "user": user.serialize()}), 200
+
+
+# Cambio de contraseña
+@api.route('/users/change-password', methods=['PUT'])
+@jwt_required()
+def change_password():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    data = request.get_json()
+    current_password = data.get("current_password")
+    new_password = data.get("new_password")
+
+    if not current_password or not new_password:
+        return jsonify({"error": "Todos los campos son obligatorios"}), 400
+
+    if not check_password_hash(user.password_hash, current_password):
+        return jsonify({"error": "La contraseña actual es incorrecta"}), 401
+
+    user.password_hash = generate_password_hash(new_password)
+    db.session.commit()
+
+    return jsonify({"message": "Contraseña actualizada exitosamente"}), 200
 
 
 @api.route('/services/featured', methods=['GET'])
@@ -552,6 +700,7 @@ def create_review(appointment_id):
 def search_providers():
     query_text = request.args.get('q', '').lower()
     location = request.args.get('location', '').lower()
+    subcategory_id = request.args.get('subcategory_id')
     
     search = db.session.query(
         User, 
@@ -575,9 +724,11 @@ def search_providers():
     if location:
         search = search.filter(ProviderProfile.coverage_area.ilike(f'%{location}%'))
         
+    if subcategory_id:
+        search = search.filter(Service.subcategory_id == subcategory_id)
+        
     search = search.group_by(User.id)
-    
-    search = search.order_by(db.desc('avg_rating'))
+    search = search.order_by(db.desc('avg_rating')) 
     
     results = search.all()
     

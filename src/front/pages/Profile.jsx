@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import "../styles/profileView.css"
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -47,7 +48,7 @@ export const Profile = () => {
     const isProvider = user.is_provider && user.providerprofile;
 
     return (
-        <div className="bg-light min-vh-100 pb-5">
+        <div className="min-vh-100 pb-5">
             <div style={{ height: "250px", backgroundImage: `url(${user.cover_image || 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200'})`, backgroundSize: "cover", backgroundPosition: "center" }}></div>
 
             <main className="container" style={{ marginTop: "-80px", maxWidth: "800px" }}>
