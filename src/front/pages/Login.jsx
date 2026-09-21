@@ -36,6 +36,7 @@ export const Login = () => {
       }
 
       localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
 
       dispatch({
         type: "set_user",
@@ -85,7 +86,10 @@ export const Login = () => {
         >
           {loading ? "Ingresando..." : "Iniciar sesión"}
         </button>
+
       </form>
+
+      <p className="mt-3">¿No tienes cuenta? crea una <a href="/Register">Aquí</a></p>
     </div>
   );
 };

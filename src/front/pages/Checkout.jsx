@@ -5,7 +5,6 @@ import {
   createAppointment,
   createTransaction,
 } from "../services/services";
-import "./Checkout.css";
 import { addPaymentMethod } from "../services/paymentMethods";
 import { getPaymentMethods } from "../services/paymentMethods";
 

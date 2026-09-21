@@ -1,0 +1,294 @@
+/* ===========================
+   PANEL PROFESIONAL - ESTILO GENERAL
+   =========================== */
+
+:root {
+  --primary-color: #007bff;
+  --secondary-color: #6c757d;
+  --bg-light: #f8f9fa;
+  --bg-dark: #1e1e2f;
+  --text-dark: #212529;
+  --text-light: #ffffff;
+  --border-radius: 8px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --transition: all 0.3s ease;
+}
+
+/* ===========================
+   LAYOUT PRINCIPAL
+   =========================== */
+
+.dashboard-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--bg-light);
+  font-family: "Inter", "Segoe UI", sans-serif;
+}
+
+.dashboard-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 25px 30px;
+}
+
+/* ===========================
+   SIDEBAR
+   =========================== */
+
+.sidebar {
+  width: 240px;
+  background-color: var(--bg-dark);
+  color: var(--text-light);
+  display: flex;
+  flex-direction: column;
+  padding: 25px 20px;
+}
+
+.sidebar-title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-bottom: 25px;
+  text-align: center;
+}
+
+.sidebar-menu {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.sidebar-menu li {
+  padding: 12px 15px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  transition: var(--transition);
+  font-weight: 500;
+}
+
+.sidebar-menu li:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.sidebar-menu li.active {
+  background-color: var(--primary-color);
+}
+
+/* ===========================
+   HEADER
+   =========================== */
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 25px;
+}
+
+.dashboard-header h1 {
+  font-size: 1.6rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* ===========================
+   TARJETAS Y SECCIONES
+   =========================== */
+
+.summary-container,
+.services-container,
+.reservations-container,
+.history-container {
+  background-color: #fff;
+  border-radius: var(--border-radius);
+  box-shadow: var(--shadow);
+  padding: 25px;
+}
+
+.summary-container h2,
+.services-container h2,
+.reservations-container h2,
+.history-container h2 {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: var(--text-dark);
+}
+
+/* ===========================
+   GRID DE RESUMEN
+   =========================== */
+
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.summary-card {
+  background-color: var(--bg-light);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  box-shadow: var(--shadow);
+  text-align: center;
+  transition: var(--transition);
+}
+
+.summary-card:hover {
+  transform: translateY(-3px);
+}
+
+.summary-card strong {
+  display: block;
+  font-size: 0.95rem;
+  color: var(--secondary-color);
+}
+
+.summary-card span {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-dark);
+}
+
+/* ===========================
+   SERVICIOS
+   =========================== */
+
+.service-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: var(--bg-light);
+  border-radius: var(--border-radius);
+  padding: 15px 20px;
+  margin-bottom: 15px;
+  box-shadow: var(--shadow);
+  transition: var(--transition);
+}
+
+.service-card:hover {
+  transform: translateY(-3px);
+}
+
+.service-card strong {
+  font-size: 1rem;
+  color: var(--text-dark);
+}
+
+.service-card p {
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+  margin: 5px 0;
+}
+
+.service-card span {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.btn-show,
+.btn-hide {
+  border: none;
+  padding: 8px 14px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  font-weight: 500;
+  transition: var(--transition);
+}
+
+.btn-show {
+  background-color: var(--primary-color);
+  color: var(--text-light);
+}
+
+.btn-hide {
+  background-color: #dc3545;
+  color: var(--text-light);
+}
+
+.btn-show:hover,
+.btn-hide:hover {
+  opacity: 0.85;
+}
+
+/* ===========================
+   RESERVAS
+   =========================== */
+
+.reservation-card {
+  background-color: var(--bg-light);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reservation-card.active {
+  border-left: 4px solid var(--primary-color);
+}
+
+.reservation-card.pending {
+  border-left: 4px solid #ffc107;
+}
+
+.reservation-card strong {
+  font-size: 1rem;
+  color: var(--text-dark);
+}
+
+.reservation-card span {
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+}
+
+/* ===========================
+   HISTORIAL
+   =========================== */
+
+.transaction-card {
+  background-color: var(--bg-light);
+  border-radius: var(--border-radius);
+  padding: 15px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.transaction-card strong {
+  font-size: 1rem;
+  color: var(--text-dark);
+}
+
+.transaction-card span {
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+}
+
+/* ===========================
+   RESPONSIVE
+   =========================== */
+
+@media (max-width: 768px) {
+  .dashboard-container {
+    flex-direction: column;
+  }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: row;
+    justify-content: space-around;
+  }
+
+  .dashboard-main {
+    padding: 15px;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}

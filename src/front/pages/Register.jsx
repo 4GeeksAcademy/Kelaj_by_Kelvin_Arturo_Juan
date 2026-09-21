@@ -9,7 +9,7 @@ export const Register = () => {
     name: "",
     email: "",
     password: "",
-    role: "client"
+    role: "buyer"
   });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -53,7 +53,7 @@ export const Register = () => {
 
       <form onSubmit={handleSubmit}>
         <div className="mb-3">
-          <label className="form-label">Nombre</label>
+          <label className="form-label">Nombre completo</label>
           <input
             type="text"
             className="form-control"
@@ -85,22 +85,9 @@ export const Register = () => {
           />
         </div>
 
-        <div className="mb-3">
-          <label className="form-label">Quiero registrarme como</label>
-          <select
-            className="form-select"
-            name="role"
-            value={formData.role}
-            onChange={handleChange}
-          >
-            <option value="client">Cliente</option>
-            <option value="provider">Proveedor</option>
-          </select>
-        </div>
-
         <button
           type="submit"
-          className="btn btn-primary w-100"
+          className="btn btn-primary mt-3 w-100"
           disabled={!formData.name || !formData.email || !formData.password || loading}
         >
           {loading ? "Creando cuenta..." : "Registrarme"}

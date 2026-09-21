@@ -1,0 +1,65 @@
+ body {
+      background-image: url("./assets/Gemini_Generated_Image_7nk55l7nk55l7nk5.jpg")
+ }
+        
+.hero-banner {
+            height: 250px;
+            background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200');
+            background-size: cover;
+            background-position: center;
+        }
+
+.profile-container { 
+    margin-top: -80px;
+}
+
+.avatar-wrapper {
+            width: 100px;
+            height: 100px;
+            margin: -50px auto 10px;
+            border-radius: 50%;
+            background: #e9ecef;
+            border: 4px solid white;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: #adb5bd;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+.status-dot {
+            width: 16px;
+            height: 16px;
+            background-color: #22c55e;
+            border: 3px solid white;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+        }
+
+.nav-tabs { border-bottom: 1px solid #dee2e6; }
+.nav-tabs .nav-link { color: #6c757d; border: none; font-weight: 600; padding: 1rem 2rem; }
+.nav-tabs .nav-link.active { color: #0d6efd; border-bottom: 2px solid #0d6efd; background: transparent; }
+
+.badge-soft-success { background-color: #dcfce7; color: #16a34a; border: 1px solid #bbf7d0; }
+.badge-soft-primary { background-color: #e0e7ff; color: #4f46e5; border: 1px solid #c7d2fe; }
+.badge-soft-warning { background-color: #fef3c7; color: #d97706; border: 1px solid #fde68a; }
+
+.service-icon-box {
+            width: 48px;
+            height: 48px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            background-color: #f3f4f6;
+            color: #4f46e5;
+            font-size: 1.25rem;
+        }
+
+.day-box { width: 50px; text-align: center; }
+.day-label { font-size: 0.75rem; font-weight: 600; color: #6b7280; margin-bottom: 4px; display: block; }
+.day-status.active { background-color: #dcfce7; color: #16a34a; border-radius: 6px; padding: 4px 0; }
+.day-status.inactive { background-color: #f3f4f6; color: #9ca3af; border-radius: 6px; padding: 4px 0; }
