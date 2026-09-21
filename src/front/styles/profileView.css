@@ -1,4 +1,6 @@
- body { background-color: #f8f9fa; }
+ body {
+      background-image: url("./assets/Gemini_Generated_Image_7nk55l7nk55l7nk5.jpg")
+ }
         
 .hero-banner {
             height: 250px;
@@ -7,7 +9,9 @@
             background-position: center;
         }
 
-.profile-container { margin-top: -80px; }
+.profile-container { 
+    margin-top: -80px;
+}
 
 .avatar-wrapper {
             width: 100px;

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom" // NUEVO: Importar useNavigate
+import { useNavigate, Link } from "react-router-dom"
+import "../styles/Home.css"
 
 const categoryIcons = {
     "Clases": "🎓",
@@ -70,11 +71,13 @@ export const Home = () => {
 
     return (
         <div>
-            <header className="text-center mb-5">
-                <h1 className="fw-bold text dark mb-3 mt-5" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem", letterSpacing: "-1px" }}>Todo lo que buscas, en un solo sitio.</h1>
-                <p className="text-secondary mx-auto" style={{ maxWidth: "700px", fontSize: "1.1rem" }}>
-                    ¿Necesitas ayuda? Con <span className="fw-bold text-dark">Kelaj</span> puedes solucionarlo rápido y fácil: desde limpieza, reparaciones y mucho más.
-                </p>
+            <header className="text-center mb-5 d-flex justify-content-center">
+                <div className="bg-white rounded m-5">
+                    <h1 className="fw-bold text dark mb-3 mt-3" style={{ fontSize: "clamp(2rem, 5vw, 3.5rem", letterSpacing: "-1px" }}>Todo lo que buscas, en un solo sitio.</h1>
+                    <p className="text-secondary mx-auto" style={{ maxWidth: "700px", fontSize: "1.1rem" }}>
+                        ¿Necesitas ayuda? Con <span className="fw-bold text-dark">Kelaj</span> puedes solucionarlo rápido y fácil: desde limpieza, reparaciones y mucho más.
+                    </p>
+                </div>
             </header>
 
             <section className="search-container mb-5">
@@ -83,7 +86,7 @@ export const Home = () => {
                     <div className="flex-grow-1 w-100 position-relative py-2 py-md-0 px-3">
                         <input
                             type="text"
-                            className="form-control border-0 search-input bg-transparent text-center text-md-start"
+                            className="form-control border rounded-pill search-input bg-transparent text-center text-md-start"
                             placeholder="¿Qué servicio estás buscando?"
                             value={query}
                             onChange={(e) => setQuery(e.target.value)}
@@ -97,7 +100,7 @@ export const Home = () => {
 
                     <div className="flex-grow-1 w-100 position-relative py-2 py-md-0 px-3">
                         <select
-                            className="form-select border-0 search-input bg-transparent text-center text-md-start"
+                            className="form-select border rounded-pill search-input bg-transparent text-center text-md-start"
                             value={location}
                             onChange={(e) => setLocation(e.target.value)}
                             style={{ cursor: "pointer", appearance: "none" }}
@@ -122,12 +125,12 @@ export const Home = () => {
 
 
             <section className="d-flex flex-column flex-sm-row justify-content-center align-items-center gap-3 mb-5 pb-4">
-                <a href="#" className="btn btn-outline-primary rounded-pill px-4 py-2 fw-semibold w-100" style={{ maxWidth: "250px" }}>
+                <a href="#" className="btn btn-primary rounded-pill px-4 py-2 fw-semibold w-100" style={{ maxWidth: "250px" }}>
                     Unirme como proveedor
                 </a>
-                <a href="#" className="btn btn-green rounded-pill px-4 py-2 fw-semibold w-100" style={{ maxWidth: "250px" }}>
+                <Link to="/catalog" className="btn btn-green rounded-pill px-4 py-2 fw-semibold w-100" style={{ maxWidth: "250px" }}>
                     Ver todos los servicios <i className="bi bi-chevron-right ms-1" style={{ fontSize: "0.8em" }}></i>
-                </a>
+                </Link>
             </section>
 
             <section className="text-center mt-4 mb-5 pb-5">
