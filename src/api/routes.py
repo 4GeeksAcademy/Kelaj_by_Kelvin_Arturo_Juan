@@ -9,6 +9,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import stripe
 import os
+import random
 
 api = Blueprint('api', __name__)
 
@@ -615,3 +616,42 @@ def toggle_service_featured(service_id):
     service.featured = bool(data.get('featured', not service.featured))
     db.session.commit()
     return jsonify({"message": "servicio actualizado", "featured": service.featured}), 200
+
+
+@api.route('/verify/start', methods=['POST'])
+@jwt_required()
+def verify_start():
+    body = request.get_json() or {}
+    dni = (body.get("dni") or "").strip()
+    user = User.query.filter_by(id=int(get_jwt_identity())).first()
+    if user is None:
+        return jsonify({"message": "Usuario no encontrado"}), 404
+    if not user.is_provider:
+        return jsonify({"message": "Solo los proveedores pueden verificarse"}), 400
+    if not dni:
+        return jsonify({"message": "El DNI es obligatorio"}), 400
+    user.dni = dni
+    user.verification_code = str(random.randint(100000, 999999))
+    db.session.commit()
+    return jsonify({
+        "message": "Te enviamos un cód\u00edgo de 6 d\u00edgitos al email asociado",
+        "debug_code": user.verification_code
+    }), 200
+
+
+@api.route('/verify/confirm', methods=['POST'])
+@jwt_required()
+def verify_confirm():
+    body = request.get_json() or {}
+    code = (body.get("code") or "").strip()
+    user = User.query.filter_by(id=int(get_jwt_identity())).first()
+    if user is None or not user.is_provider:
+        return jsonify({"message": "Solo los proveedores pueden verificarse"}), 400
+    if not user.verification_code or user.verification_code != code:
+        return jsonify({"message": "C\u00f3digo incorrecto. Intenta de nuevo"}), 400
+    if user.providerprofile is None:
+        db.session.add(ProviderProfile(user_id=user.id))
+    user.providerprofile.verified = True
+    user.verification_code = None
+    db.session.commit()
+    return jsonify({"message": "¡Verificado!", "user": user.serialize()}), 200

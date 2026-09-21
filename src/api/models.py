@@ -30,6 +30,8 @@ class User(db.Model):
         Boolean(), nullable=False, default=False)
     date_created: Mapped[DateTime] = mapped_column(
         DateTime, default=db.func.now())
+    dni: Mapped[str] = mapped_column(String(20), nullable=True)
+    verification_code: Mapped[str] = mapped_column(String(6), nullable=True)
 
     followers: Mapped[list["User"]] = relationship(
         secondary=followers_association,
@@ -63,6 +65,8 @@ class User(db.Model):
             "is_provider": self.is_provider,
             "is_active": self.is_active,
             "date_created": self.date_created.isoformat(),
+            "dni": self.dni,
+            "verified": self.providerprofile.verified if self.providerprofile else False,
             "followers_count": len(self.followers),
             "following_count": len(self.following),
             "roles": [r.role for r in self.roles],

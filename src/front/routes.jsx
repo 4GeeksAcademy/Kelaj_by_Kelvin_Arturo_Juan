@@ -13,6 +13,8 @@ import { Login } from "./pages/Login";
 import Checkout from "./pages/Checkout";
 import { Results } from "./pages/Results";
 import { AdminFeatured } from "./pages/AdminFeatured";
+import { Providers } from "./pages/Providers";
+import { VerificationPage } from "./pages/VerificationPage";
 
 export const router = createBrowserRouter(
     createRoutesFromElements(
@@ -26,6 +28,8 @@ export const router = createBrowserRouter(
         <Route path="/login" element={<Login />} />
         <Route path="/results" element={<Results />} />
         <Route path="/admin/featured" element={<AdminFeatured />} />
+        <Route path="/providers" element={<Providers />} />
+        <Route path="/verificacion" element={<VerificationPage />} />
       </Route>
     )
 );

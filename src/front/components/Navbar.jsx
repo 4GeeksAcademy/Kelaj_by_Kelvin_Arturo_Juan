@@ -1,5 +1,6 @@
 import { Link, useNavigate } from "react-router-dom"
 import useGlobalReducer from "../hooks/useGlobalReducer"
+import { VerifiedBadge } from "./VerifiedBadge"
 
 export const Navbar = () => {
     const { store, dispatch } = useGlobalReducer()
@@ -37,9 +38,20 @@ export const Navbar = () => {
                             </Link>
                         </>
                     ) : (
-                        <button className="btn btn-sm btn-outline-danger" onClick={handleLogout}>
-                            Cerrar sesión
-                        </button>
+                        <>
+                            {store.user.is_provider && (
+                                store.user.verified ? (
+                                    <VerifiedBadge size={18} />
+                                ) : (
+                                    <Link to="/verificacion">
+                                        <button className="btn btn-sm btn-outline-secondary">Verificarse</button>
+                                    </Link>
+                                )
+                            )}
+                            <button className="btn btn-sm btn-outline-danger" onClick={handleLogout}>
+                                Cerrar sesión
+                            </button>
+                        </>
                     )}
                 </div>
             </div>

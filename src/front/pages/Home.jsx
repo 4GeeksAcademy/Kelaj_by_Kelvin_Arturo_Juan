@@ -2,11 +2,23 @@ import React, { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { CategoryIcon, ClockIcon } from "../components/CategoryIcon"
 
+const provinciasEspana = [
+    "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Barcelona",
+    "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca",
+    "Girona", "Granada", "Guadalajara", "Gipuzkoa", "Huelva", "Huesca", "Illes Balears", "Jaén",
+    "A Coruña", "La Rioja", "Las Palmas", "León", "Lleida", "Lugo", "Madrid", "Málaga", "Murcia",
+    "Navarra", "Ourense", "Palencia", "Pontevedra", "Salamanca", "Segovia", "Sevilla", "Soria",
+    "Tarragona", "Santa Cruz de Tenerife", "Teruel", "Toledo", "Valencia", "Valladolid", "Bizkaia",
+    "Zamora", "Zaragoza", "Ceuta", "Melilla"
+]
+
 export const Home = () => {
     const [categories, setCategories] = useState([])
     const [services, setServices] = useState([])
     const [search, setSearch] = useState("")
     const [loading, setLoading] = useState(true)
+    const [provinciaQuery, setProvinciaQuery] = useState("")
+    const [provinciasOpen, setProvinciasOpen] = useState(false)
     const navigate = useNavigate()
 
     const API = import.meta.env.VITE_BACKEND_URL
@@ -77,6 +89,41 @@ export const Home = () => {
                         </div>
                     ))}
                 </div>
+            </section>
+
+            <section className="container py-5">
+                <button
+                    className="btn btn-outline-primary w-100 d-flex justify-content-between align-items-center"
+                    style={{ maxWidth: 480, fontWeight: 600 }}
+                    onClick={() => setProvinciasOpen(!provinciasOpen)}
+                >
+                    <span>Provincias donde operamos</span>
+                    <span>{provinciasOpen ? "▲" : "▼"}</span>
+                </button>
+                {provinciasOpen && (
+                    <div className="mt-3" style={{ maxHeight: 260, overflowY: "auto", maxWidth: 480, border: "1px solid #e5e7eb", borderRadius: 10, padding: 16 }}>
+                        <input
+                            type="text"
+                            className="form-control form-control-sm mb-3"
+                            placeholder="Busca tu provincia..."
+                            value={provinciaQuery}
+                            onChange={(e) => setProvinciaQuery(e.target.value)}
+                        />
+                        <div className="d-flex flex-wrap gap-2">
+                            {provinciasEspana
+                                .filter(p => p.toLowerCase().includes(provinciaQuery.toLowerCase()))
+                                .sort((a, b) => a.localeCompare(b, "es"))
+                                .map(p => (
+                                    <span key={p} className="badge rounded-pill text-bg-primary" style={{ padding: "8px 12px", cursor: "pointer" }} onClick={() => navigate("/providers?location=" + encodeURIComponent(p))}>
+                                        {p}
+                                    </span>
+                                ))}
+                            {provinciasEspana.filter(p => p.toLowerCase().includes(provinciaQuery.toLowerCase())).length === 0 && (
+                                <small className="text-muted">No se encontraron provincias para "{provinciaQuery}".</small>
+                            )}
+                        </div>
+                    </div>
+                )}
             </section>
 
             <section className="container pb-5">
