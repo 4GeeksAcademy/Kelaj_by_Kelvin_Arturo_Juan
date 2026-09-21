@@ -2,6 +2,10 @@
    PROGRESS BAR CIRCULAR CON ETIQUETAS
    ============================= */
    
+body {
+    background-image: url("./assets/Gemini_Generated_Image_7nk55l7nk55l7nk5.jpg")
+}
+
 .checkout-steps {
   display: flex;
   justify-content: space-between;
