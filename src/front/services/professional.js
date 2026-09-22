@@ -2,7 +2,7 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
 // RESUMEN
 export const getProviderSummary = async () => {
-  const res = await fetch(`${BACKEND_URL}/provider/summary`, {
+  const res = await fetch(`${BACKEND_URL}/api/provider/summary`, {
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
   return await res.json();
@@ -12,7 +12,7 @@ export const getProviderSummary = async () => {
 export const getProviderServices = async () => {
   const token = localStorage.getItem("token");
   const response = await fetch(
-    `${import.meta.env.VITE_BACKEND_URL}/provider/services`,
+    `${import.meta.env.VITE_BACKEND_URL}/api/provider/services`,
     {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -24,7 +24,7 @@ export const getProviderServices = async () => {
 };
 
 export const toggleServiceStatus = async (id) => {
-  const res = await fetch(`${BACKEND_URL}/provider/services/${id}/toggle`, {
+  const res = await fetch(`${BACKEND_URL}/api/provider/services/${id}/toggle`, {
     method: "PUT",
     headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
   });
@@ -36,7 +36,7 @@ export const getProviderAppointments = async () => {
   const token = localStorage.getItem("token");
   try {
     const res = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL}/provider/appointments`,
+      `${import.meta.env.VITE_BACKEND_URL}/api/provider/appointments`,
       {
         headers: { Authorization: `Bearer ${token}` },
       },
@@ -55,7 +55,7 @@ export const getProviderTransactions = async () => {
   const token = localStorage.getItem("token");
   try {
     const res = await fetch(
-      `${import.meta.env.VITE_BACKEND_URL}/provider/transactions`,
+      `${import.meta.env.VITE_BACKEND_URL}/api/provider/transactions`,
       {
         headers: { Authorization: `Bearer ${token}` },
       },

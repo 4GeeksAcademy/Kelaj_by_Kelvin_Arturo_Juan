@@ -1,15 +1,19 @@
-import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useState, useEffect, useRef } from "react";
+import "../styles/Checkout.css";
 import {
   getServiceById,
   getAvailability,
   createAppointment,
   createTransaction,
+  createTransactionWithSaved,
 } from "../services/services";
-import { addPaymentMethod } from "../services/paymentMethods";
-import { getPaymentMethods } from "../services/paymentMethods";
+import {
+  getPaymentMethods,
+  addPaymentMethod,
+} from "../services/paymentMethods";
 
-
-export default function Checkout({ serviceId }) {
+export default function Checkout() {
 
   // PASOS DEL CHECKOUT
   const [step, setStep] = useState(1);
@@ -24,7 +28,21 @@ export default function Checkout({ serviceId }) {
   const [saveCard, setSaveCard] = useState(false);
   const [paymentMethods, setPaymentMethods] = useState([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null);
+  const stripeRef = useRef(null);
+  const elementsRef = useRef(null);
+  const cardElementRef = useRef(null);
+  const [searchParams] = useSearchParams();
+  const serviceId = searchParams.get("serviceId");
 
+  // ============================
+  // CARGAR LOS METODOS DE PAGOS - FORM DE STRIPE STEP 5
+  // ============================    
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return; // si no hay sesión, no llama al backend
+
+    getPaymentMethods().then(setPaymentMethods);
+  }, []);
 
   // ============================
   // AUTOCOMPLETADO USER LOGUEADO Y CARGAR SERVICIO
@@ -44,21 +62,41 @@ export default function Checkout({ serviceId }) {
     getServiceById(serviceId).then(setService).catch(console.error);
   }, [serviceId]);
 
-  // ============================
-  // MONTAR FORMULARIO DE STRIPE EN STEP 5
-  // ============================
   useEffect(() => {
-    getPaymentMethods().then(setPaymentMethods);
-  }, []);
+    if (step !== 6 || selectedPaymentMethod) return;
 
-  useEffect(() => {
-    if (step === 5) {
-      const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-      const elements = stripe.elements();
-      const cardElement = elements.create("card");
-      cardElement.mount("#card-element");
+    const publicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
+
+    console.log("STRIPE PUBLIC KEY:", publicKey);
+
+    if (!publicKey) {
+      console.error("Falta VITE_STRIPE_PUBLIC_KEY en el archivo .env");
+      return;
     }
-  }, [step]);
+
+    if (!window.Stripe) {
+      console.error("Stripe.js no está cargado");
+      return;
+    }
+
+    const stripe = window.Stripe(publicKey);
+    const elements = stripe.elements();
+
+    const cardElement = elements.create("card");
+
+    stripeRef.current = stripe;
+    elementsRef.current = elements;
+    cardElementRef.current = cardElement;
+
+    cardElement.mount("#card-element");
+
+    return () => {
+      if (cardElementRef.current) {
+        cardElementRef.current.destroy();
+        cardElementRef.current = null;
+      }
+    };
+  }, [step, selectedPaymentMethod]);
 
   // ============================
   // Skeleton loader mientras carga
@@ -88,22 +126,38 @@ export default function Checkout({ serviceId }) {
   // CREAR CITA
   // ============================
   const handleAppointment = async () => {
+
+    if (!selectedSlot) {
+      alert("Debes seleccionar una fecha y hora");
+      return;
+    }
+
+    console.log("SLOT SELECCIONADO:", selectedSlot);
+
     const date_time = `${selectedSlot.date}T${selectedSlot.start_time}:00`;
 
     const data = {
-      client_id: JSON.parse(localStorage.getItem("user")).id,
       service_id: service.id,
       date_time: date_time
     };
 
-    const res = await createAppointment(data);
-    setAppointmentId(res.appointment_id);
+    console.log("DATOS DE LA CITA:", data);
 
-    // Si NO tiene tarjetas guardadas → ir directo a Stripe
+    const res = await createAppointment(data);
+
+    console.log("RESPUESTA CREAR CITA:", res);
+
+    if (!res || !res.appointment) {
+      console.error("No se pudo crear la cita:", res);
+      alert("No se pudo crear la cita");
+      return;
+    }
+
+    setAppointmentId(res.appointment.id);
+
     if (paymentMethods.length === 0) {
       setStep(6);
     } else {
-      // Si SÍ tiene tarjetas guardadas → mostrar selección
       setStep(5);
     }
   };
@@ -112,7 +166,7 @@ export default function Checkout({ serviceId }) {
   // PAGO CON TARJETA GUARDADA
   // ============================
   const handleTransactionWithSavedCard = async () => {
-    const res = await createTransaction({
+    const res = await createTransactionWithSaved({
       appointment_id: appointmentId,
       amount: total,
       payment_method_id: selectedPaymentMethod.id
@@ -126,52 +180,64 @@ export default function Checkout({ serviceId }) {
   // PAGO CON TARJETA NUEVA (STRIPE)
   // ============================
   const handleTransaction = async () => {
-    const stripe = window.Stripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
-    const elements = stripe.elements();
-    const cardElement = elements.getElement("card");
 
-    // 1. Crear token solo si el usuario usa tarjeta nueva
-    let token = null;
-    if (!selectedPaymentMethod) {
-      const { token: stripeToken, error } = await stripe.createToken(cardElement);
-      if (error) {
-        alert("Error al procesar la tarjeta");
-        return;
-      }
-      token = stripeToken;
+    const stripe = stripeRef.current;
+    const cardElement = cardElementRef.current;
+
+    // Comprobar Stripe
+    if (!stripe) {
+      alert("Stripe no está inicializado");
+      console.error("stripeRef.current está vacío");
+      return;
     }
 
-    // 2️. Cobrar según el tipo de tarjeta
-    let res;
-
-    if (selectedPaymentMethod) {
-      // Pagar con tarjeta guardada
-      res = await createTransactionWithSaved({
-        appointment_id: appointmentId,
-        amount: total,
-        payment_method_id: selectedPaymentMethod.id
-      });
-    } else {
-      // Pagar con tarjeta nueva
-      res = await createTransaction({
-        appointment_id: appointmentId,
-        amount: total,
-        token_id: token.id
-      });
-
-      // Guardar tarjeta si el usuario quiere
-      if (saveCard) {
-        await addPaymentMethod({
-          provider: "stripe",
-          token_id: token.id,
-          brand: token.card.brand,
-          last_four_digits: token.card.last4
-        });
-      }
+    // Comprobar formulario de tarjeta
+    if (!cardElement) {
+      alert("El formulario de tarjeta no está disponible");
+      console.error("cardElementRef.current está vacío");
+      return;
     }
 
-    // 3️. Actualizar estado y pasar al paso final
+    // Crear token de Stripe
+    const { token, error } = await stripe.createToken(cardElement);
+
+    if (error) {
+      console.error("Error de Stripe:", error);
+      alert(error.message || "Error al procesar la tarjeta");
+      return;
+    }
+
+    console.log("TOKEN STRIPE:", token);
+
+    // Crear la transacción en nuestro backend
+    const res = await createTransaction({
+      appointment_id: appointmentId,
+      amount: total,
+      token_id: token.id
+    });
+
+    console.log("RESPUESTA TRANSACCIÓN:", res);
+
+    if (!res || !res.transaction_id) {
+      console.error("No se pudo crear la transacción:", res);
+      alert("No se pudo procesar el pago");
+      return;
+    }
+
+    // Guardar tarjeta si el usuario lo ha marcado
+    if (saveCard) {
+      await addPaymentMethod({
+        provider: "stripe",
+        token_id: token.id,
+        brand: token.card.brand,
+        last_four_digits: token.card.last4
+      });
+    }
+
+    // Guardar ID de la transacción
     setTransactionId(res.transaction_id);
+
+    // Ir a reserva confirmada
     setStep(7);
   };
 
@@ -264,6 +330,7 @@ export default function Checkout({ serviceId }) {
             key={slot.id}
             className="slot-btn btn btn-outline-primary w-100 mb-2"
             onClick={() => {
+              console.log("SLOT SELECCIONADO:", slot);
               setSelectedSlot(slot);
               setStep(3);
             }}

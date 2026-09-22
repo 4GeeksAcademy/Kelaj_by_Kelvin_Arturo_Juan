@@ -3,21 +3,38 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 // Obtener un servicio por ID
 export const getServiceById = async (serviceId) => {
   const response = await fetch(`${BACKEND_URL}/api/services/${serviceId}`);
-  if (!response.ok) throw new Error("Error al cargar el servicio");
+
+  if (!response.ok) {
+    console.warn("Error al cargar el servicio:", response.status);
+    return null; // evita Unexpected token '<'
+  }
+
   return await response.json();
 };
 
 // Obtener disponibilidad de un servicio
 export const getAvailability = async (serviceId) => {
-  const response = await fetch(`${BACKEND_URL}/api/services/${serviceId}/availability`);
-  if (!response.ok) throw new Error("Error al cargar disponibilidad");
+  const response = await fetch(
+    `${BACKEND_URL}/api/services/${serviceId}/availability`,
+  );
+
+  if (!response.ok) {
+    console.warn("Error al cargar disponibilidad:", response.status);
+    return []; // evita Unexpected token '<'
+  }
+
   return await response.json();
 };
 
 // Obtener todas las categorías
 export const getCategories = async () => {
   const response = await fetch(`${BACKEND_URL}/api/categories`);
-  if (!response.ok) throw new Error("Error al cargar categorías");
+
+  if (!response.ok) {
+    console.warn("Error al cargar categorías:", response.status);
+    return []; // evita Unexpected token '<'
+  }
+
   return await response.json();
 };
 
@@ -27,12 +44,19 @@ export const createAppointment = async (data) => {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error("Error al crear la cita");
-  return await response.json();
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    console.error("Error al crear la cita:", response.status, result);
+    return null;
+  }
+
+  return result;
 };
 
 // Crear una transacción con tarjeta nueva
@@ -41,10 +65,21 @@ export async function createTransaction(data) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   });
+
+  if (!resp.ok) {
+    console.warn("Error al crear transacción:", resp.status);
+    return null; // evita Unexpected token '<'
+  }
+  const contentType = resp.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    console.warn("Respuesta no es JSON:", contentType);
+    return null;
+  }
+
   return await resp.json();
 }
 
@@ -54,9 +89,20 @@ export async function createTransactionWithSaved(data) {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${localStorage.getItem("token")}`
+      Authorization: `Bearer ${localStorage.getItem("token")}`,
     },
-    body: JSON.stringify(data)
+    body: JSON.stringify(data),
   });
+
+  if (!resp.ok) {
+    console.warn("Error al crear transacción guardada:", resp.status);
+    return null; // evita Unexpected token '<'
+  }
+  const contentType = resp.headers.get("content-type");
+  if (!contentType || !contentType.includes("application/json")) {
+    console.warn("Respuesta no es JSON:", contentType);
+    return null;
+  }
+
   return await resp.json();
 }

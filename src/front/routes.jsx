@@ -26,7 +26,7 @@ export const router = createBrowserRouter(
         <Route path="/profile/:theId" element={<Profile />} />
         <Route path="/profile/:theId/become-provider" element={<BecomeProvider />} />
         <Route path="/single/:theId" element={ <Single />} />  
-        <Route path="/checkout" element={<Checkout serviceId={4}/>} />
+        <Route path="/checkout" element={<Checkout />} />
         <Route path="/demo" element={<Demo />} />
         <Route path="/privacy" element={<Privacy />} />
         <Route path="/register" element={<Register />} />

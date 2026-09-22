@@ -89,7 +89,7 @@ export const Login = () => {
 
       </form>
 
-      <p className="mt-3">¿No tienes cuenta? crea una <a href="/Register">Aquí</a></p>
+      <p className="mt-3">¿No tienes cuenta? crea una <a href="/register">Aquí</a></p>
     </div>
   );
 };
