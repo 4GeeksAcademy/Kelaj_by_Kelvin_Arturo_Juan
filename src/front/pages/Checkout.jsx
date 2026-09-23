@@ -184,60 +184,63 @@ export default function Checkout() {
     const stripe = stripeRef.current;
     const cardElement = cardElementRef.current;
 
-    // Comprobar Stripe
     if (!stripe) {
       alert("Stripe no está inicializado");
       console.error("stripeRef.current está vacío");
       return;
     }
 
-    // Comprobar formulario de tarjeta
     if (!cardElement) {
       alert("El formulario de tarjeta no está disponible");
       console.error("cardElementRef.current está vacío");
       return;
     }
 
-    // Crear token de Stripe
-    const { token, error } = await stripe.createToken(cardElement);
+    // Crear PaymentMethod en Stripe
+    const { paymentMethod, error } = await stripe.createPaymentMethod({
+      type: "card",
+      card: cardElement,
+      billing_details: {
+        name: clientData.name,
+        email: clientData.email,
+        phone: clientData.phone
+      }
+    });
 
     if (error) {
-      console.error("Error de Stripe:", error);
+      console.error("Error creando PaymentMethod:", error);
       alert(error.message || "Error al procesar la tarjeta");
       return;
     }
 
-    console.log("TOKEN STRIPE:", token);
+    console.log("PAYMENT METHOD STRIPE:", paymentMethod);
 
-    // Crear la transacción en nuestro backend
+    // Enviar PaymentMethod al backend
     const res = await createTransaction({
       appointment_id: appointmentId,
       amount: total,
-      token_id: token.id
+      payment_method_id: paymentMethod.id
     });
 
     console.log("RESPUESTA TRANSACCIÓN:", res);
 
     if (!res || !res.transaction_id) {
       console.error("No se pudo crear la transacción:", res);
-      alert("No se pudo procesar el pago");
+      alert(res?.error || "No se pudo procesar el pago");
       return;
     }
 
-    // Guardar tarjeta si el usuario lo ha marcado
+    // Guardar tarjeta si el usuario lo solicita
     if (saveCard) {
       await addPaymentMethod({
         provider: "stripe",
-        token_id: token.id,
-        brand: token.card.brand,
-        last_four_digits: token.card.last4
+        payment_method_id: paymentMethod.id,
+        brand: paymentMethod.card.brand,
+        last_four_digits: paymentMethod.card.last4
       });
     }
 
-    // Guardar ID de la transacción
     setTransactionId(res.transaction_id);
-
-    // Ir a reserva confirmada
     setStep(7);
   };
 

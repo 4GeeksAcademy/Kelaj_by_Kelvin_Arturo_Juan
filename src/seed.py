@@ -198,3 +198,5 @@ def seed_database():
         # 6. Guardar todo definitivamente en la base de datos
         db.session.commit()
         print("¡Base de datos poblada exitosamente con 10 proveedores variados, horarios y reseñas!")
+
+print("Seed completado correctamente.")

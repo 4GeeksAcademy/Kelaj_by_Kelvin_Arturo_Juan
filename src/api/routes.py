@@ -527,35 +527,74 @@ def delete_payment_method(id):
 # COBRO CON TARJETA NUEVA
 # ============================
 
-
 @api.route('/charge', methods=['POST'])
 @jwt_required()
 def create_charge():
+
     user_id = int(get_jwt_identity())
     data = request.get_json()
 
     required = ["appointment_id", "amount", "payment_method_id"]
+
     if not all(k in data for k in required):
         return jsonify({"error": "Datos incompletos"}), 400
 
     appointment = Appointment.query.get(data["appointment_id"])
+
     if not appointment:
         return jsonify({"error": "Cita no encontrada"}), 404
 
     user = User.query.get(user_id)
-    if not user.stripe_customer_id:
-        return jsonify({"error": "Cliente Stripe no encontrado"}), 400
+
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
 
     try:
-        # PaymentIntent con tarjeta nueva (confirmada en frontend)
+
+        # ==========================================
+        # 1. CREAR CUSTOMER DE STRIPE SI NO EXISTE
+        # ==========================================
+
+        if not user.stripe_customer_id:
+
+            customer = stripe.Customer.create(
+                email=user.email,
+                name=f"{user.name} {user.last_name or ''}".strip()
+            )
+
+            user.stripe_customer_id = customer.id
+            db.session.commit()
+
+        # ==========================================
+        # 2. ASOCIAR PAYMENT METHOD AL CUSTOMER
+        # ==========================================
+
+        payment_method_id = data["payment_method_id"]
+
+        stripe.PaymentMethod.attach(
+            payment_method_id,
+            customer=user.stripe_customer_id
+        )
+
+        # ==========================================
+        # 3. CREAR PAYMENT INTENT
+        # ==========================================
+
         payment_intent = stripe.PaymentIntent.create(
-            amount=int(data["amount"] * 100),
+            amount=int(float(data["amount"]) * 100),
             currency="eur",
             customer=user.stripe_customer_id,
             payment_method=data["payment_method_id"],
             confirm=True,
-            off_session=False
+            automatic_payment_methods={
+                "enabled": True,
+                "allow_redirects": "never"
+            }
         )
+
+        # ==========================================
+        # 4. GUARDAR TRANSACCIÓN
+        # ==========================================
 
         transaction = Transaction(
             appointment_id=appointment.id,
@@ -575,11 +614,30 @@ def create_charge():
         }), 201
 
     except stripe.error.CardError as e:
-        return jsonify({"error": str(e)}), 402
-    except Exception as e:
-        print(e)
-        return jsonify({"error": "Error procesando el pago"}), 500
 
+        print("STRIPE CARD ERROR:", str(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 402
+
+    except stripe.error.StripeError as e:
+
+        print("STRIPE ERROR:", str(e))
+
+        return jsonify({
+            "error": str(e)
+        }), 400
+
+    except Exception as e:
+
+        print("ERROR INTERNO:", repr(e))
+
+        db.session.rollback()
+
+        return jsonify({
+            "error": str(e)
+        }), 500
 
 # ============================
 # COBRO CON TARJETA GUARDADA
@@ -612,11 +670,11 @@ def create_charge_with_saved_method():
 
     try:
         payment_intent = stripe.PaymentIntent.create(
-            amount=int(data["amount"] * 100),
+            amount=int(float(data["amount"]) * 100),
             currency="eur",
             customer=user.stripe_customer_id,
-            payment_method=method.stripe_payment_method_id,
-            off_session=True,
+            payment_method=payment_method_id,
+            payment_method_types=["card"],
             confirm=True
         )
 

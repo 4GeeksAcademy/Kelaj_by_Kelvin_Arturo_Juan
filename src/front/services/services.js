@@ -70,17 +70,34 @@ export async function createTransaction(data) {
     body: JSON.stringify(data),
   });
 
-  if (!resp.ok) {
-    console.warn("Error al crear transacción:", resp.status);
-    return null; // evita Unexpected token '<'
-  }
-  const contentType = resp.headers.get("content-type");
-  if (!contentType || !contentType.includes("application/json")) {
-    console.warn("Respuesta no es JSON:", contentType);
-    return null;
+  const contentType = resp.headers.get("content-type") || "";
+
+  // Si el backend devuelve JSON
+  if (contentType.includes("application/json")) {
+    const result = await resp.json();
+
+    if (!resp.ok) {
+      console.error("ERROR DEL BACKEND /api/charge:", {
+        status: resp.status,
+        error: result
+      });
+
+      return null;
+    }
+
+    return result;
   }
 
-  return await resp.json();
+  // Si Flask devuelve HTML por un error 500
+  const text = await resp.text();
+
+  console.error("ERROR HTTP /api/charge:", {
+    status: resp.status,
+    contentType,
+    response: text
+  });
+
+  return null;
 }
 
 // Crear una transacción con tarjeta guardada
