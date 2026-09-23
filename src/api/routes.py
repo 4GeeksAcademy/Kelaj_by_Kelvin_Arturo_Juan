@@ -280,7 +280,8 @@ def become_provider():
         bio=data.get("bio"),
         description=data.get("description"),
         coverage_area=data.get("coverage_area"),
-        is_home_service=data.get("is_home_service", False)
+        is_home_service=data.get("is_home_service", False),
+        role="provider"
     )
 
     user.is_provider = True
@@ -924,6 +925,12 @@ def auth_google():
         db.session.add(user)
         db.session.commit()
         created = True
+    if user.is_provider:
+        if user.providerprofile is None:
+            db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+        else:
+            user.providerprofile.verified = True
+        db.session.commit()
     roles = ["buyer", "provider"] if user.is_provider else ["buyer"]
     access_token = create_access_token(identity=str(user.id), additional_claims={"roles": roles})
     return jsonify({

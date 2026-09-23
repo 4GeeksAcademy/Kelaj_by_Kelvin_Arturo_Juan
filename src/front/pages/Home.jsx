@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
+import useGlobalReducer from "../hooks/useGlobalReducer";
 import "../styles/Home.css"
 
 const categoryIcons = {
@@ -35,6 +36,19 @@ export const Home = () => {
     const [location, setLocation] = useState("")
 
     const navigate = useNavigate()
+    const { store } = useGlobalReducer();
+
+    const handleJoinProvider = () => {
+        if (!store || !store.user) {
+            navigate("/register");
+            return;
+        }
+        if (store.user.is_provider) {
+            navigate("/professional-panel");
+            return;
+        }
+        navigate(`/profile/${store.user.id}/become-provider`);
+    };
 
     const API = import.meta.env.VITE_BACKEND_URL
 
@@ -125,9 +139,9 @@ export const Home = () => {
 
 
             <section className="d-flex flex-column flex-sm-row justify-content-center align-items-center gap-3 mb-5 pb-4">
-                <a href="#" className="btn btn-primary rounded-pill px-4 py-2 fw-semibold w-100" style={{ maxWidth: "250px" }}>
+                <button onClick={handleJoinProvider} className="btn btn-primary rounded-pill px-4 py-2 fw-semibold w-100" style={{ maxWidth: "250px" }}>
                     Unirme como proveedor
-                </a>
+                </button>
                 <Link to="/catalog" className="btn btn-green rounded-pill px-4 py-2 fw-semibold w-100" style={{ maxWidth: "250px" }}>
                     Ver todos los servicios <i className="bi bi-chevron-right ms-1" style={{ fontSize: "0.8em" }}></i>
                 </Link>
@@ -138,7 +152,7 @@ export const Home = () => {
 
                 <div className="row justify-content-center g-3 g-md-4 max-w-4xl mx-auto" style={{ maxWidth: "800px" }}>
                     <div className="col-6 col-md-3">
-                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm">
+                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm" onClick={() => navigate("/results?q=Reparaciones")} style={{ cursor: "pointer" }}>
                             <div className="card-body d-flex flex-column align-items-center justify-content-center p-2">
                                 <i className="bi bi-house fs-1 text-dark mb-2"></i>
                                 <h6 className="fw-semibold text-dark mb-0 fs-6">Reparaciones</h6>
@@ -147,7 +161,7 @@ export const Home = () => {
                     </div>
 
                     <div className="col-6 col-md-3">
-                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm">
+                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm" onClick={() => navigate("/results?q=Belleza")} style={{ cursor: "pointer" }}>
                             <div className="card-body d-flex flex-column align-items-center justify-content-center p-2">
                                 <i className="bi bi-house fs-1 text-dark mb-2"></i>
                                 <h6 className="fw-semibold text-dark mb-0 fs-6">Belleza</h6>
@@ -156,7 +170,7 @@ export const Home = () => {
                     </div>
 
                     <div className="col-6 col-md-3">
-                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm">
+                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm" onClick={() => navigate("/results?q=Clases")} style={{ cursor: "pointer" }}>
                             <div className="card-body d-flex flex-column align-items-center justify-content-center p-2">
                                 <i className="bi bi-house fs-1 text-dark mb-2"></i>
                                 <h6 className="fw-semibold text-dark mb-0 fs-6">Clases</h6>
@@ -165,7 +179,7 @@ export const Home = () => {
                     </div>
 
                     <div className="col-6 col-md-3">
-                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm">
+                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm" onClick={() => navigate("/results?q=Cuidados")} style={{ cursor: "pointer" }}>
                             <div className="card-body d-flex flex-column align-items-center justify-content-center p-2">
                                 <i className="bi bi-house fs-1 text-dark mb-2"></i>
                                 <h6 className="fw-semibold text-dark mb-0 fs-6">Cuidados</h6>
@@ -177,7 +191,7 @@ export const Home = () => {
             <section>
                 <div className="row justify-content-center g-3 g-md-4 max-w-4xl mx-auto" style={{ maxWidth: "800px" }}>
                     <div className="col-6 col-md-3">
-                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm">
+                        <div className="card category-card bg-white border border-light-subtle rounded-3 h-100 py-4 shadow-sm" onClick={() => navigate("/catalog")} style={{ cursor: "pointer" }}>
                             <div className="card-body d-flex flex-column align-items-center justify-content-center p-2">
                                 <i className="bi bi-house fs-1 text-dark mb-2"></i>
                                 <h6 className="fw-semibold text-dark mb-0 fs-6">Mas...</h6>
@@ -187,152 +201,8 @@ export const Home = () => {
                 </div>
             </section>
 
-            <section className="container pb-5">
-                <h2 className="mb-4" style={{ fontWeight: 700 }}>Servicios destacados</h2>
-                <div className="row">
-                </div>
-            </section>
 
-            <div className="row g-4 m-4">
 
-                {/* Tarjeta 1: Curso de Inglés */}
-                <div className="col-12 col-md-6 col-lg-3">
-                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
-                        <div style={{ height: 160, position: "relative" }}>
-                            {/* Imagen de muestra (puedes cambiar la URL por tus imágenes locales) */}
-                            <img
-                                src="https://images.unsplash.com/photo-1546410531-b4c4fa773d57?w=500&q=80"
-                                alt="Curso de Inglés"
-                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
-                            />
-                            {/* Badge flotante de valoración */}
-                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
-                                <i className="bi bi-star-fill text-warning me-1"></i> 4.9
-                            </span>
-                        </div>
-                        <div className="card-body d-flex flex-column">
-                            <span className="text-primary fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Clases</span>
-                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
-                                Clases de Inglés (Conversación y B2/C1)
-                            </h6>
-                            <p className="text-muted small mb-3">
-                                <i className="bi bi-geo-alt-fill me-1"></i> Remoto / Online
-                            </p>
-                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center gap-2">
-                                    <img src="https://ui-avatars.com/api/?name=Emma+W&background=e0e7ff&color=4f46e5" alt="Profesor" className="rounded-circle" style={{ width: 28, height: 28 }} />
-                                    <small className="text-muted fw-semibold">Emma W.</small>
-                                </div>
-                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
-                                    15€<span className="text-muted fw-normal" style={{ fontSize: "0.8rem" }}>/h</span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tarjeta 2: Manicura */}
-                <div className="col-12 col-md-6 col-lg-3">
-                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
-                        <div style={{ height: 160, position: "relative" }}>
-                            <img
-                                src="https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=500&q=80"
-                                alt="Manicura"
-                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
-                            />
-                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
-                                <i className="bi bi-star-fill text-warning me-1"></i> 5.0
-                            </span>
-                        </div>
-                        <div className="card-body d-flex flex-column">
-                            <span className="text-danger fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Belleza</span>
-                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
-                                Manicura semipermanente y Nail Art
-                            </h6>
-                            <p className="text-muted small mb-3">
-                                <i className="bi bi-geo-alt-fill me-1"></i> Madrid Centro (A domicilio)
-                            </p>
-                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center gap-2">
-                                    <img src="https://ui-avatars.com/api/?name=Laura+G&background=fee2e2&color=dc2626" alt="Profesional" className="rounded-circle" style={{ width: 28, height: 28 }} />
-                                    <small className="text-muted fw-semibold">Laura G.</small>
-                                </div>
-                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
-                                    25€
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tarjeta 3: Reparaciones */}
-                <div className="col-12 col-md-6 col-lg-3">
-                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
-                        <div style={{ height: 160, position: "relative" }}>
-                            <img
-                                src="https://images.unsplash.com/photo-1581092921461-eab62e97a780?w=500&q=80"
-                                alt="Reparaciones"
-                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
-                            />
-                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
-                                <i className="bi bi-star-fill text-warning me-1"></i> 4.7
-                            </span>
-                        </div>
-                        <div className="card-body d-flex flex-column">
-                            <span className="text-success fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Hogar</span>
-                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
-                                Instalación y reparación de electrodomésticos
-                            </h6>
-                            <p className="text-muted small mb-3">
-                                <i className="bi bi-geo-alt-fill me-1"></i> Comunidad de Madrid
-                            </p>
-                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center gap-2">
-                                    <img src="https://ui-avatars.com/api/?name=Carlos+M&background=dcfce7&color=16a34a" alt="Técnico" className="rounded-circle" style={{ width: 28, height: 28 }} />
-                                    <small className="text-muted fw-semibold">Carlos M.</small>
-                                </div>
-                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
-                                    40€
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tarjeta 4: Entrenador Personal */}
-                <div className="col-12 col-md-6 col-lg-3">
-                    <div className="card h-100 shadow-sm border-0 hover-card" style={{ borderRadius: 14 }}>
-                        <div style={{ height: 160, position: "relative" }}>
-                            <img
-                                src="https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=500&q=80"
-                                alt="Deportes"
-                                style={{ width: "100%", height: "100%", objectFit: "cover", borderTopLeftRadius: 14, borderTopRightRadius: 14 }}
-                            />
-                            <span className="badge bg-white text-dark position-absolute top-0 end-0 m-2 shadow-sm px-2 py-1 fs-6">
-                                <i className="bi bi-star-half text-warning me-1"></i> 4.5
-                            </span>
-                        </div>
-                        <div className="card-body d-flex flex-column">
-                            <span className="text-info fw-bold text-uppercase" style={{ fontSize: "0.75rem", letterSpacing: "1px" }}>Deportes</span>
-                            <h6 className="card-title fw-bold mt-2 mb-2 lh-base">
-                                Entrenador personal e hipertrofia
-                            </h6>
-                            <p className="text-muted small mb-3">
-                                <i className="bi bi-geo-alt-fill me-1"></i> Gimnasios / Aire libre
-                            </p>
-                            <div className="mt-auto pt-3 border-top d-flex justify-content-between align-items-center">
-                                <div className="d-flex align-items-center gap-2">
-                                    <img src="https://ui-avatars.com/api/?name=David+R&background=cffafe&color=0891b2" alt="Entrenador" className="rounded-circle" style={{ width: 28, height: 28 }} />
-                                    <small className="text-muted fw-semibold">David R.</small>
-                                </div>
-                                <span style={{ fontWeight: 700, fontSize: "1.15rem", color: "#4f46e5" }}>
-                                    20€<span className="text-muted fw-normal" style={{ fontSize: "0.8rem" }}>/sesión</span>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     )
 }
