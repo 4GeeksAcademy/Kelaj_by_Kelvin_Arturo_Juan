@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -52,28 +52,28 @@ export const Login = () => {
 
   return (
     <div className="container my-5" style={{ maxWidth: "400px" }}>
-      <h2>Iniciar sesión</h2>
 
       {error && <div className="alert alert-danger">{error}</div>}
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} className="bg-white p-4 rounded bg-opacity-50">
+      <h2 className="text-center">Iniciar sesión</h2>
         <div className="mb-3">
-          <label className="form-label">Email</label>
           <input
             type="email"
-            className="form-control"
+            className="form-control rounded-pill my-3"
             name="email"
+            placeholder="E-mail"
             value={formData.email}
             onChange={handleChange}
           />
         </div>
 
-        <div className="mb-3">
-          <label className="form-label">Contraseña</label>
+        <div className="">
           <input
             type="password"
-            className="form-control"
+            className="form-control rounded-pill my-"
             name="password"
+            placeholder="Contraseña"
             value={formData.password}
             onChange={handleChange}
           />
@@ -81,15 +81,15 @@ export const Login = () => {
 
         <button
           type="submit"
-          className="btn btn-primary w-100"
+          className="btn btn-primary w-100 mt-3 rounded-pill"
           disabled={!formData.email || !formData.password || loading}
         >
           {loading ? "Ingresando..." : "Iniciar sesión"}
         </button>
 
+      <p className="mt-3">¿No tienes cuenta? crea una <Link to="/Register">Aquí</Link></p>
       </form>
 
-      <p className="mt-3">¿No tienes cuenta? crea una <a href="/Register">Aquí</a></p>
     </div>
   );
 };

@@ -4,7 +4,6 @@ import "../styles/profileView.css"
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
-// Subcomponente para pintar las estrellas en las reseñas
 const StarRating = ({ rating }) => (
     <div className="text-warning">
         {[...Array(5)].map((_, i) => (
@@ -13,22 +12,102 @@ const StarRating = ({ rating }) => (
     </div>
 );
 
+// Componente del Botón de Seguir integrado
+const FollowButton = ({ targetUserId, initialIsFollowing }) => {
+    const [isFollowing, setIsFollowing] = useState(initialIsFollowing);
+    const [loading, setLoading] = useState(false);
+
+    const handleToggleFollow = async () => {
+        // Obtenemos el token desde sessionStorage o localStorage (según como lo guardes en tu app)
+        const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+
+        if (!token) {
+            alert("Debes iniciar sesión para seguir a un usuario");
+            return;
+        }
+
+        setLoading(true);
+        const method = isFollowing ? 'DELETE' : 'POST';
+
+        try {
+            const response = await fetch(`${BACKEND_URL}/api/users/${targetUserId}/follow`, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                setIsFollowing(!isFollowing); // Invertimos el estado visualmente
+            } else {
+                const data = await response.json();
+                console.error("Error:", data.error || data.message);
+            }
+        } catch (error) {
+            console.error("Error de conexión:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <button
+            onClick={handleToggleFollow}
+            disabled={loading}
+            className={`btn rounded-pill px-4 fw-semibold ${isFollowing ? 'btn-secondary' : 'btn-outline-secondary'}`}
+        >
+            {loading ? (
+                <span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            ) : isFollowing ? (
+                <><i className="bi bi-person-check-fill me-1"></i> Siguiendo</>
+            ) : (
+                <><i className="bi bi-person-plus me-1"></i> Seguir</>
+            )}
+        </button>
+    );
+};
+
 export const Profile = () => {
     const { theId } = useParams();
     console.log('el Id de la url es: ', theId)
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState(""); // Se asignará dinámicamente al cargar
+    const [activeTab, setActiveTab] = useState("");
+    const [isFollowing, setIsFollowing] = useState(false); // Estado para el FollowButton
+    const [isOwnProfile, setIsOwnProfile] = useState(false); // Para saber si es mi propio perfil
 
     useEffect(() => {
         const fetchProfile = async () => {
             try {
+                // 1. Cargar los datos del perfil
                 const response = await fetch(`${BACKEND_URL}/api/users/${theId}`);
                 if (response.ok) {
                     const data = await response.json();
                     setUser(data);
-                    // Si es proveedor arranca en "servicios", si es cliente arranca en "historial"
                     setActiveTab(data.is_provider ? "servicios" : "historial");
+
+                    // 2. Lógica para Seguidores: Verificar si el usuario actual ya sigue a este perfil
+                    const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+                    const storedUser = JSON.parse(sessionStorage.getItem("user") || localStorage.getItem("user") || "null");
+
+                    if (storedUser) {
+                        // Verificamos si estamos viendo nuestro propio perfil
+                        setIsOwnProfile(storedUser.id === parseInt(theId));
+
+                        if (token && storedUser.id !== parseInt(theId)) {
+                            // Consultamos a quiénes sigue el usuario logueado
+                            const resFollowing = await fetch(`${BACKEND_URL}/api/users/${storedUser.id}/following`, {
+                                headers: { 'Authorization': `Bearer ${token}` }
+                            });
+
+                            if (resFollowing.ok) {
+                                const followingData = await resFollowing.json();
+                                // Si el ID del perfil actual está en la lista de seguidos, marcamos como true
+                                setIsFollowing(followingData.some(u => u.id === parseInt(theId)));
+                            }
+                        }
+                    }
                 } else {
                     console.error("Perfil no encontrado");
                 }
@@ -67,9 +146,22 @@ export const Profile = () => {
                         <>
                             <p className="text-muted mb-2"><i className="bi bi-geo-alt-fill text-primary"></i> {user.providerprofile.coverage_area || user.city || "Ubicación no especificada"}</p>
 
-                            <div className="d-flex justify-content-center gap-3 mt-4">
+                            {/* Contadores de Seguidores y Seguidos */}
+                            <div className="d-flex justify-content-center gap-4 my-3 text-dark">
+                                <div><span className="fw-bold fs-5">{user.followers_count}</span> <span className="text-muted small">Seguidores</span></div>
+                                <div><span className="fw-bold fs-5">{user.following_count}</span> <span className="text-muted small">Siguiendo</span></div>
+                            </div>
+
+                            <div className="d-flex justify-content-center gap-3 mt-3">
                                 <button className="btn btn-primary rounded-pill px-4 fw-semibold"><i className="bi bi-calendar-event"></i> Agendar</button>
-                                <button className="btn btn-outline-secondary rounded-pill px-4 fw-semibold"><i className="bi bi-person-plus"></i> Seguir</button>
+
+                                {/* Componente de Seguir condicional */}
+                                {!isOwnProfile && (
+                                    <div>
+                                        <FollowButton targetUserId={parseInt(theId)} initialIsFollowing={isFollowing} />
+                                        <button className="btn btn-success mx-3 rounded-pill px-4 fw-semibold">Mensaje</button>
+                                    </div>
+                                )}
                             </div>
                         </>
                     ) : (
@@ -78,6 +170,18 @@ export const Profile = () => {
                                 <i className="bi bi-person-badge me-1"></i> Cliente Kelaj
                             </span>
                             <p className="text-muted mt-3 mb-0 small"><i className="bi bi-geo-alt-fill"></i> {user.city || "Ubicación no especificada"}</p>
+
+                            {/* Contadores para clientes */}
+                            <div className="d-flex justify-content-center gap-4 my-3 text-dark">
+                                <div><span className="fw-bold fs-5">{user.followers_count}</span> <span className="text-muted small">Seguidores</span></div>
+                                <div><span className="fw-bold fs-5">{user.following_count}</span> <span className="text-muted small">Siguiendo</span></div>
+                            </div>
+
+                            {!isOwnProfile && (
+                                <div className="mt-3">
+                                    <FollowButton targetUserId={parseInt(theId)} initialIsFollowing={isFollowing} />
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -141,7 +245,7 @@ export const Profile = () => {
                         <ul className="nav nav-tabs d-flex justify-content-around bg-white pt-2">
                             {["historial", "resenas"].map(tab => (
                                 <li key={tab} className="nav-item flex-fill text-center">
-                                    <button 
+                                    <button
                                         className={`nav-link w-100 border-0 fw-semibold py-3 ${activeTab === tab ? "text-primary border-bottom border-primary border-2" : "text-muted"}`}
                                         style={{ background: "transparent" }}
                                         onClick={() => setActiveTab(tab)}

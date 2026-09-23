@@ -22,6 +22,8 @@ flask-jwt-extended = "*"
 cloudinary = "*"
 stripe = "*"
 cors = "*"
+flask-socketio = "*"
+eventlet = "*"
 
 [requires]
 python_version = "3.13"

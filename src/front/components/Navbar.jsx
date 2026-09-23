@@ -16,7 +16,7 @@ export const Navbar = () => {
   };
 
   return (
-    <nav className="navbar navbar-expand-lg navbar-light bg-white py-3 border-bottom">
+    <nav className="navbar bg-opacity-50 navbar-expand-lg navbar-light bg-white py-3">
       <div className="container">
 
         {/* LOGO */}
@@ -63,44 +63,38 @@ export const Navbar = () => {
                   </Link>
                 </li>
 
-                {/* SI ES PROVEEDOR → 2 PANELES */}
-                {store.user.role === "provider" && (
-                  <>
-                    <li>
-                      <button className="dropdown-item" onClick={() => navigate("/professional-panel")}>
-                        <i className="bi bi-briefcase me-2"></i> Panel profesional
-                      </button>
-                    </li>
+                {/* PANEL CLIENTE (Todos, porque un proveedor también contrata servicios) */}
+                <li>
+                  <button className="dropdown-item" onClick={() => navigate("/client-panel")}>
+                    <i className="bi bi-people me-2"></i> Panel cliente
+                  </button>
+                </li>
 
-                    <li>
-                      <button className="dropdown-item" onClick={() => navigate("/client-panel")}>
-                        <i className="bi bi-people me-2"></i> Panel cliente
-                      </button>
-                    </li>
-                    <li>
-                      <Link className="dropdown-item" to="/settings">
-                        <i className="bi bi-gear me-2"></i> Configuración
-                      </Link>
-                    </li>
-                  </>
+                {/* PANEL PROFESIONAL (Solo si ya activó su capa de proveedor) */}
+                {store.user.is_provider && (
+                  <li>
+                    <button className="dropdown-item" onClick={() => navigate("/professional-panel")}>
+                      <i className="bi bi-briefcase me-2"></i> Panel profesional
+                    </button>
+                  </li>
                 )}
 
-                {/* SI ES CLIENTE → opción para convertirse en proveedor */}
-                {store.user.role === "buyer" && (
+                {/* UPGRADE A PROVEEDOR (Solo si aún es un cliente básico) */}
+                {!store.user.is_provider && (
                   <li>
-                    <Link className="dropdown-item text-primary fw-semibold" to={`/profile/${store.user.id}/become-provider`}>
-                      <i className="bi bi-rocket-takeoff me-2"></i> Quiero ofrecer mi servicio
+                    <Link className="dropdown-item text-primary fw-semibold" to="/profile/${store.user.id}/become-provider">
+                      <i className="bi bi-rocket-takeoff me-2"></i> Quiero ofrecer mis servicios
                     </Link>
                   </li>
                 )}
 
                 {/* CONFIGURACIÓN */}
+
                 <li>
                   <Link className="dropdown-item" to="/settings">
                     <i className="bi bi-gear me-2"></i> Configuración
                   </Link>
                 </li>
-
                 <li><hr className="dropdown-divider" /></li>
 
                 {/* CERRAR SESIÓN */}
