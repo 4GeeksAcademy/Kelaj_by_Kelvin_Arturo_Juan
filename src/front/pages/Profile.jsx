@@ -19,7 +19,7 @@ const FollowButton = ({ targetUserId, initialIsFollowing }) => {
 
     const handleToggleFollow = async () => {
         // Obtenemos el token desde sessionStorage o localStorage (según como lo guardes en tu app)
-        const token = localStorage.getItem("token");
+        const token = sessionStorage.getItem("token") || localStorage.getItem("token");
 
         if (!token) {
             alert("Debes iniciar sesión para seguir a un usuario");

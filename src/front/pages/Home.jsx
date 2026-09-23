@@ -38,6 +38,7 @@ export const Home = () => {
     const navigate = useNavigate()
 
     const API = import.meta.env.VITE_BACKEND_URL
+    const token = localStorage.getItem("token");
 
     useEffect(() => {
         const load = async () => {

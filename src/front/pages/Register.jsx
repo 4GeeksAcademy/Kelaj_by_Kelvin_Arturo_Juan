@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
@@ -49,7 +49,7 @@ export const Register = () => {
       });
 
       if (!loginResponse.ok) {
-        navigate("/login");
+        navigate("/login"); 
         return;
       }
 
@@ -61,7 +61,7 @@ export const Register = () => {
       dispatch({ type: "set_user", payload: { user: loginData.user, token: loginData.token } });
 
       if (formData.role === "provider") {
-        navigate("/become-provider");
+        navigate("/profile/${store.user.id}/become-provider");
       } else {
         navigate("/")
       };
@@ -110,7 +110,7 @@ export const Register = () => {
             onChange={handleChange}
           />
         </div>
-        <div>
+        <div className="col-6">
           <button
             type="submit"
             className="col-6 btn btn-primary mt-3 w-100 rounded-pill"
