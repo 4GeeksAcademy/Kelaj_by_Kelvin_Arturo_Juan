@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import "../styles/profileView.css"
+import { VerifiedBadge } from "../components/VerifiedBadge";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
@@ -61,7 +62,7 @@ export const Profile = () => {
                         style={{ width: "100px", height: "100px", marginTop: "-70px", objectFit: "cover", backgroundColor: "#fff" }}
                     />
 
-                    <h3 className="fw-bold mt-3 mb-1">{user.name} {user.last_name}</h3>
+                    <h3 className="fw-bold mt-3 mb-1 d-flex align-items-center gap-2">{user.name} {user.last_name} {user.verified && <VerifiedBadge size={22} />}</h3>
 
                     {isProvider ? (
                         <>

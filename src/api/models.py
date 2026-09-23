@@ -110,6 +110,7 @@ class ProviderProfile(db.Model):
     bio: Mapped[str] = mapped_column(Text, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     coverage_area: Mapped[str] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(String(50), nullable=True)
     is_home_service: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
     user: Mapped["User"] = relationship(back_populates="providerprofile")
