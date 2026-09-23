@@ -12,6 +12,7 @@ from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identi
 import stripe
 import os
 import random
+import secrets
 import smtplib
 from email.mime.text import MIMEText
 
@@ -884,3 +885,50 @@ def verify_google():
     user.verification_code = None
     db.session.commit()
     return jsonify({"message": "\u00a1Verificado con Google!", "user": user.serialize()}), 200
+
+
+@api.route('/auth/google', methods=['POST'])
+def auth_google():
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+    except ImportError:
+        return jsonify({"message": "Falta instalar google-auth en el backend"}), 500
+    body = request.get_json() or {}
+    credential = body.get("credential", "")
+    if not credential:
+        return jsonify({"message": "Falta la credencial de Google"}), 400
+    try:
+        info = google_id_token.verify_oauth2_token(
+            credential, google_requests.Request(), os.getenv("GOOGLE_CLIENT_ID"))
+    except Exception:
+        return jsonify({"message": "Token de Google inv\u00e1lido"}), 400
+    email = (info.get("email") or "").lower().strip()
+    if not email:
+        return jsonify({"message": "Google no devolvi\u00f3 email"}), 400
+    user = User.query.filter(func.lower(User.email) == email).first()
+    created = False
+    if user is None:
+        role = body.get("role", "buyer")
+        if role not in ["buyer", "provider"]:
+            role = "buyer"
+        user = User(
+            name=info.get("given_name") or info.get("name") or email.split("@")[0],
+            last_name=info.get("family_name"),
+            email=email,
+            password_hash=generate_password_hash(secrets.token_urlsafe(24)),
+            is_provider=(role == "provider"),
+            role=role,
+            profile_image=info.get("picture")
+        )
+        db.session.add(user)
+        db.session.commit()
+        created = True
+    roles = ["buyer", "provider"] if user.is_provider else ["buyer"]
+    access_token = create_access_token(identity=str(user.id), additional_claims={"roles": roles})
+    return jsonify({
+        "message": "cuenta creada con Google" if created else "login exitoso",
+        "created": created,
+        "token": access_token,
+        "user": user.serialize()
+    }), 200

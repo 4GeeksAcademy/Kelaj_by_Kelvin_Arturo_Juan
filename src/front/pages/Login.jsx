@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import "../styles/juan.css";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 const heroImage = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1600&auto=format&fit=crop";
 
 export const Login = () => {
@@ -12,6 +13,60 @@ export const Login = () => {
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
+
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) return;
+    if (window.google && window.google.accounts) {
+      setGoogleReady(true);
+      return;
+    }
+    const s = document.createElement("script");
+    s.src = "https://accounts.google.com/gsi/client";
+    s.async = true;
+    s.defer = true;
+    s.onload = () => setGoogleReady(true);
+    document.body.appendChild(s);
+  }, []);
+
+  useEffect(() => {
+    if (googleReady && window.google && document.getElementById("google-login-btn")) {
+      window.google.accounts.id.initialize({
+        client_id: GOOGLE_CLIENT_ID,
+        callback: handleGoogleCredential
+      });
+      window.google.accounts.id.renderButton(
+        document.getElementById("google-login-btn"),
+        { theme: "outline", size: "large", text: "continue_with", width: 280 }
+      );
+    }
+  }, [googleReady]);
+
+  const handleGoogleCredential = async (response) => {
+    setError(null);
+    setLoading(true);
+    try {
+      const res = await fetch(`${backendUrl}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credential: response.credential })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.message);
+        setLoading(false);
+        return;
+      }
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+      dispatch({ type: "set_user", payload: { user: data.user, token: data.token } });
+      setLoading(false);
+      navigate("/");
+    } catch (err) {
+      setError("Ocurrió un error al conectar con el servidor");
+      setLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -95,6 +150,18 @@ export const Login = () => {
               {loading ? "Ingresando..." : "Iniciar sesión"}
             </button>
           </form>
+
+          <div className="d-flex align-items-center my-3">
+            <hr className="flex-grow-1" />
+            <span className="mx-2 text-muted">o</span>
+            <hr className="flex-grow-1" />
+          </div>
+
+          {GOOGLE_CLIENT_ID ? (
+            <div className="d-flex justify-content-center">
+              <div id="google-login-btn"></div>
+            </div>
+          ) : null}
 
           <p className="mt-3 mb-0">
             ¿No tienes cuenta? <a href="/Register">crea una Aquí</a>
