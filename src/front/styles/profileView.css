@@ -1,4 +1,4 @@
-   
+
 .hero-banner {
             height: 250px;
             background-image: url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1200');
@@ -6,7 +6,7 @@
             background-position: center;
         }
 
-.profile-container { 
+.profile-container {
     margin-top: -80px;
 }
 

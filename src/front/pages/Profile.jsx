@@ -88,7 +88,7 @@ export const Profile = () => {
                     setActiveTab(data.is_provider ? "servicios" : "historial");
 
                     // 2. Lógica para Seguidores: Verificar si el usuario actual ya sigue a este perfil
-                    const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+                    const token = localStorage.getItem("token");
                     const storedUser = JSON.parse(sessionStorage.getItem("user") || localStorage.getItem("user") || "null");
 
                     if (storedUser) {
@@ -134,7 +134,7 @@ export const Profile = () => {
                 {/* Tarjeta Principal (Compartida) */}
                 <div className="card border-0 shadow-sm rounded-4 mb-4 p-4 text-center position-relative">
                     <img
-                        src={user.profile_image || "https://ui-avatars.com/api/?name=" + user.name + "&background=e0e7ff&color=4f46e5"}
+                        src={user.profile_image || "https://via.placeholder.com/200"} onError={(e) => e.target.src = "https://via.placeholder.com/200"}
                         alt={user.name}
                         className="rounded-circle border border-4 border-white mx-auto shadow-sm"
                         style={{ width: "100px", height: "100px", marginTop: "-70px", objectFit: "cover", backgroundColor: "#fff" }}

@@ -30,6 +30,10 @@ class User(db.Model):
         Boolean(), nullable=False, default=False)
     date_created: Mapped[DateTime] = mapped_column(
         DateTime, default=db.func.now())
+    stripe_customer_id: Mapped[str] = mapped_column(
+        String(120),
+        nullable=True
+    )
 
     followers: Mapped[list["User"]] = relationship(
         secondary=followers_association,

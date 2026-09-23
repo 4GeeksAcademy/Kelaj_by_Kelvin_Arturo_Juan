@@ -56,7 +56,7 @@ export const Login = () => {
       {error && <div className="alert alert-danger">{error}</div>}
 
       <form onSubmit={handleSubmit} className="bg-white p-4 rounded bg-opacity-50">
-      <h2 className="text-center">Iniciar sesión</h2>
+        <h2 className="text-center">Iniciar sesión</h2>
         <div className="mb-3">
           <input
             type="email"
@@ -71,7 +71,7 @@ export const Login = () => {
         <div className="">
           <input
             type="password"
-            className="form-control rounded-pill my-"
+            className="form-control rounded-pill my-3"
             name="password"
             placeholder="Contraseña"
             value={formData.password}
@@ -86,6 +86,7 @@ export const Login = () => {
         >
           {loading ? "Ingresando..." : "Iniciar sesión"}
         </button>
+        <p className="mt-3">¿No tienes cuenta? crea una <Link to="/register">aquí</Link></p>
 
       <p className="mt-3">¿No tienes cuenta? crea una <Link to="/Register">Aquí</Link></p>
       </form>

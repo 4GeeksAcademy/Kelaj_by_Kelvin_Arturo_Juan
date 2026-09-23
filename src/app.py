@@ -14,6 +14,7 @@ from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
 from flask_jwt_extended import JWTManager
+from datetime import timedelta
 
 app = Flask(__name__)
 CORS(api)
@@ -24,7 +25,6 @@ static_file_dir = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), '../dist/')
 app.url_map.strict_slashes = False
 
-from flask_cors import CORS
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # database condiguration
@@ -38,6 +38,7 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config["JWT_SECRET_KEY"] = os.getenv("FLASK_APP_KEY", "super-secret-key")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 jwt = JWTManager(app)
 
 MIGRATE = Migrate(app, db, compare_type=True)
@@ -77,7 +78,7 @@ def handle_message(data):
             )
             db.session.add(new_message)
             db.session.commit()
-            
+
             data['timestamp'] = new_message.timestamp.strftime("%H:%M")
         except Exception as e:
             db.session.rollback()
