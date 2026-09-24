@@ -40,7 +40,7 @@ export const getCategories = async () => {
 
 // Crear una reserva
 export const createAppointment = async (data) => {
-  const response = await fetch(`${BACKEND_URL}api/appointments`, {
+  const response = await fetch(`${BACKEND_URL}/api/appointments`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -61,7 +61,7 @@ export const createAppointment = async (data) => {
 
 // Crear una transacción con tarjeta nueva
 export async function createTransaction(data) {
-  const resp = await fetch(`${BACKEND_URL}api/charge`, {
+  const resp = await fetch(`${BACKEND_URL}/api/charge`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -102,7 +102,7 @@ export async function createTransaction(data) {
 
 // Crear una transacción con tarjeta guardada
 export async function createTransactionWithSaved(data) {
-  const resp = await fetch(`${BACKEND_URL}api/charge/saved`, {
+  const resp = await fetch(`${BACKEND_URL}/api/charge/saved`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

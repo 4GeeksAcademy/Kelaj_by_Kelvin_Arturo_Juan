@@ -1,0 +1,33 @@
+// Añade esto al final de src/front/services/services.js
+
+export const getUserLocation = () => {
+  return new Promise((resolve, reject) => {
+    if (!("geolocation" in navigator)) {
+      reject(new Error("Geolocalización no soportada por el navegador"));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { latitude, longitude } = position.coords;
+          // OpenStreetMap API (Gratis, sin Key)
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          
+          if (!res.ok) throw new Error("Error en la respuesta de geolocalización");
+          
+          const data = await res.json();
+          const cityOrProvince = data.address.city || data.address.town || data.address.province || data.address.state;
+          
+          resolve(cityOrProvince ? cityOrProvince.toLowerCase() : null);
+        } catch (error) {
+          reject(error);
+        }
+      },
+      (error) => {
+        reject(error);
+      },
+      { timeout: 10000 } // Timeout de 10 segundos
+    );
+  });
+};

@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom"; // Añadimos Link
 import useGlobalReducer from "../hooks/useGlobalReducer";
-
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { loginUser } from "../services/userServices"; // Importamos el servicio
 
 export const Login = () => {
   const { dispatch } = useGlobalReducer();
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -21,31 +21,27 @@ export const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
-      });
+      // 1. Usamos el servicio limpio (él se encarga del fetch y los errores)
+      const data = await loginUser(formData);
 
-      const data = await response.json();
+      // Compatibilidad por si tu backend envía el token con otro nombre
+      const validToken = data.token || data.access_token;
+      const validUser = data.user;
 
-      if (!response.ok) {
-        setError(data.message);
-        setLoading(false);
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      // 2. Guardamos la sesión
+      localStorage.setItem("token", validToken);
+      localStorage.setItem("user", JSON.stringify(validUser));
 
       dispatch({
         type: "set_user",
-        payload: { user: data.user, token: data.token }
+        payload: { user: validUser, token: validToken }
       });
 
+      // 3. Redirigimos al inicio
       navigate("/");
     } catch (err) {
-      setError("Ocurrió un error al conectar con el servidor");
+      setError(err.message || "Ocurrió un error al conectar con el servidor");
+    } finally {
       setLoading(false);
     }
   };
@@ -53,42 +49,52 @@ export const Login = () => {
   return (
     <div className="container my-5" style={{ maxWidth: "400px" }}>
 
-      {error && <div className="alert alert-danger">{error}</div>}
+      {error && <div className="alert alert-danger rounded-3">{error}</div>}
 
-      <form onSubmit={handleSubmit} className="bg-white p-4 rounded bg-opacity-50">
-        <h2 className="text-center">Iniciar sesión</h2>
+      <form onSubmit={handleSubmit} className="bg-white p-4 rounded-4 bg-opacity-50 shadow-sm border">
+        <h3 className="text-center fw-bold mb-4">Iniciar sesión</h3>
+
         <div className="mb-3">
+          <label htmlFor="email" className="form-label fw-semibold small">E-mail</label>
+
           <input
             type="email"
-            className="form-control rounded-pill my-3"
+            className="form-control rounded-pill my-1 px-3 py-2"
             name="email"
-            placeholder="E-mail"
             value={formData.email}
             onChange={handleChange}
+            required
           />
         </div>
 
-        <div className="">
+        <div className="mb-4">
+          <label htmlFor="password" className="form-label fw-semibold small">Contraseña</label>
           <input
             type="password"
-            className="form-control rounded-pill my-3"
+            className="form-control rounded-pill my-1 px-3 py-2"
             name="password"
-            placeholder="Contraseña"
             value={formData.password}
             onChange={handleChange}
+            required
           />
         </div>
 
         <button
           type="submit"
-          className="btn btn-primary w-100 mt-3 rounded-pill"
+          className="btn btn-primary w-100 py-2 fw-semibold rounded-pill"
           disabled={!formData.email || !formData.password || loading}
         >
-          {loading ? "Ingresando..." : "Iniciar sesión"}
+          {loading ? (
+            <><span className="spinner-border spinner-border-sm me-2"></span>Ingresando...</>
+          ) : (
+            "Iniciar sesión"
+          )}
         </button>
-        <p className="mt-3">¿No tienes cuenta? crea una <Link to="/register">aquí</Link></p>
 
-      <p className="mt-3">¿No tienes cuenta? crea una <Link to="/Register">Aquí</Link></p>
+        {/* Usamos <Link> en lugar de <a> para evitar la recarga completa del navegador */}
+        <p className="mt-4 text-center small">
+          ¿No tienes cuenta? crea una <Link to="/register" className="text-primary fw-bold text-decoration-none">Aquí</Link>
+        </p>
       </form>
 
     </div>

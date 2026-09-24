@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useGlobalReducer from '../hooks/useGlobalReducer';
 import { SuccessModal } from '../components/SuccessModal';
-
-const backendUrl = import.meta.env.VITE_BACKEND_URL;
+import { registerProvider } from '../services/userServices'; // Importamos el servicio extraído
 
 const categoriesData = {
     "Hogar y Mantenimiento": ["Limpieza del hogar", "Bricolaje y reparaciones", "Fontanería", "Jardinería"],
@@ -12,20 +11,19 @@ const categoriesData = {
     "Tecnología y Soporte": ["Soporte informático", "Diseño gráfico", "Desarrollo web"]
 };
 
-// Array con las provincias de España para el select
 const provincesList = [
-    "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Barcelona", "Burgos", 
-    "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Girona", "Granada", 
-    "Guadalajara", "Gipuzkoa", "Huelva", "Huesca", "Islas Baleares", "Jaén", "La Coruña", "La Rioja", 
-    "Las Palmas", "León", "Lleida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Ourense", "Palencia", 
-    "Pontevedra", "Salamanca", "Segovia", "Sevilla", "Soria", "Tarragona", "Santa Cruz de Tenerife", 
+    "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Barcelona", "Burgos",
+    "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca", "Girona", "Granada",
+    "Guadalajara", "Gipuzkoa", "Huelva", "Huesca", "Islas Baleares", "Jaén", "La Coruña", "La Rioja",
+    "Las Palmas", "León", "Lleida", "Lugo", "Madrid", "Málaga", "Murcia", "Navarra", "Ourense", "Palencia",
+    "Pontevedra", "Salamanca", "Segovia", "Sevilla", "Soria", "Tarragona", "Santa Cruz de Tenerife",
     "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"
 ];
 
 export const BecomeProvider = () => {
     const { store, dispatch } = useGlobalReducer();
     const navigate = useNavigate();
-    
+
     const [formData, setFormData] = useState({
         phone: "",
         bio: "",
@@ -33,15 +31,15 @@ export const BecomeProvider = () => {
         category: "",
         subcategory: "",
         is_home_service: false,
-        province: "",      // Nuevo campo
-        municipality: "",  // Nuevo campo
-        address: ""        // Sede física
+        province: "",
+        municipality: "",
+        address: ""
     });
-    
+
     const [subcategories, setSubcategories] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
-    const [showSuccessModal, setShowSuccessModal] = useState(false); 
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
@@ -68,16 +66,12 @@ export const BecomeProvider = () => {
         e.preventDefault();
         setLoading(true);
         setError(null);
-        
-        const token = localStorage.getItem("token");
 
-        // Unimos provincia y municipio para que el backend lo reciba en el campo que ya existe (coverage_area)
         let finalCoverageArea = formData.province;
         if (formData.municipality) {
             finalCoverageArea += ` - ${formData.municipality}`;
         }
 
-        // Construimos el objeto final a enviar
         const payload = {
             phone: formData.phone,
             bio: formData.bio,
@@ -90,22 +84,12 @@ export const BecomeProvider = () => {
         };
 
         try {
-            const response = await fetch(`${backendUrl}/api/become-provider`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify(payload)
-            });
+            // Llamamos a la función limpia que pusiste en userServices
+            await registerProvider(payload);
 
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || "Error al registrarse como proveedor");
-            }
-
+            const token = localStorage.getItem("token");
             const updatedUser = { ...store.user, is_provider: true };
+            
             localStorage.setItem("user", JSON.stringify(updatedUser));
             dispatch({ type: "set_user", payload: { user: updatedUser, token } });
 
@@ -120,13 +104,13 @@ export const BecomeProvider = () => {
 
     const handleRedirect = () => {
         setShowSuccessModal(false);
-        navigate(`/profile/${store.user.id}`);
+        navigate(`/profile/${store.user?.id || ''}`);
     };
 
     return (
         <div className="container py-5" style={{ maxWidth: "650px" }}>
-            <div className="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white position-relative">
-                
+            <div className="card border-0 shadow-sm rounded-4 p-4 p-md-5 bg-white bg-opacity-50 position-relative">
+
                 {loading && (
                     <div className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-white bg-opacity-75" style={{ zIndex: 10, borderRadius: "inherit" }}>
                         <div className="spinner-border text-primary" role="status"></div>
@@ -142,27 +126,27 @@ export const BecomeProvider = () => {
                 </div>
 
                 {error && <div className="alert alert-danger">{error}</div>}
-                
+
                 <form onSubmit={handleSubmit}>
-                    
+
                     <div className="mb-3">
                         <label className="form-label fw-semibold">Teléfono de contacto</label>
-                        <input 
-                            type="tel" 
-                            className="form-control" 
+                        <input
+                            type="tel"
+                            className="form-control rounded-pill"
                             name="phone"
                             placeholder="Ej. +34 600 000 000"
                             value={formData.phone}
                             onChange={handleChange}
-                            required 
+                            required
                         />
                     </div>
 
                     <div className="row">
                         <div className="col-md-6 mb-3">
                             <label className="form-label fw-semibold">Categoría principal</label>
-                            <select 
-                                className="form-select" 
+                            <select
+                                className="form-select rounded-pill"
                                 name="category"
                                 value={formData.category}
                                 onChange={handleCategoryChange}
@@ -177,8 +161,8 @@ export const BecomeProvider = () => {
 
                         <div className="col-md-6 mb-3">
                             <label className="form-label fw-semibold">Especialidad</label>
-                            <select 
-                                className="form-select" 
+                            <select
+                                className="form-select rounded-pill"
                                 name="subcategory"
                                 value={formData.subcategory}
                                 onChange={handleChange}
@@ -195,9 +179,9 @@ export const BecomeProvider = () => {
 
                     <div className="mb-3">
                         <label className="form-label fw-semibold">Biografía corta</label>
-                        <input 
-                            type="text" 
-                            className="form-control" 
+                        <input
+                            type="text"
+                            className="form-control rounded-pill"
                             name="bio"
                             placeholder="Ej. Profesional con más de 5 años de experiencia"
                             value={formData.bio}
@@ -208,8 +192,8 @@ export const BecomeProvider = () => {
 
                     <div className="mb-3">
                         <label className="form-label fw-semibold">Descripción detallada</label>
-                        <textarea 
-                            className="form-control" 
+                        <textarea
+                            className="form-control rounded"
                             name="description"
                             rows="3"
                             placeholder="Cuenta un poco más sobre tu experiencia y cómo trabajas..."
@@ -219,10 +203,10 @@ export const BecomeProvider = () => {
                     </div>
 
                     <div className="form-check form-switch mb-4 p-3 bg-light rounded-3 border">
-                        <input 
-                            className="form-check-input ms-0 me-2" 
-                            type="checkbox" 
-                            id="isHomeServiceCheck" 
+                        <input
+                            className="form-check-input ms-0 me-2"
+                            type="checkbox"
+                            id="isHomeServiceCheck"
                             name="is_home_service"
                             checked={formData.is_home_service}
                             onChange={handleChange}
@@ -233,18 +217,17 @@ export const BecomeProvider = () => {
                         </label>
                     </div>
 
-                    {/* SECCIÓN DE DIRECCIÓN Y COBERTURA MODIFICADA */}
                     {formData.is_home_service && (
                         <div className="border border-primary border-opacity-25 bg-primary bg-opacity-10 p-4 rounded-4 mb-4">
                             <h6 className="fw-bold text-primary mb-3">
                                 <i className="bi bi-geo-alt-fill me-1"></i> Área de Servicio y Ubicación
                             </h6>
-                            
+
                             <div className="row">
                                 <div className="col-md-6 mb-3">
                                     <label className="form-label fw-semibold">Provincia <span className="text-danger">*</span></label>
-                                    <select 
-                                        className="form-select" 
+                                    <select
+                                        className="form-select rounded-pill"
                                         name="province"
                                         value={formData.province}
                                         onChange={handleChange}
@@ -256,12 +239,12 @@ export const BecomeProvider = () => {
                                         ))}
                                     </select>
                                 </div>
-                                
+
                                 <div className="col-md-6 mb-3">
-                                    <label className="form-label fw-semibold">Municipio (Opcional)</label>
-                                    <input 
-                                        type="text" 
-                                        className="form-control" 
+                                    <label className="form-label fw-semibold">Municipio o ciudad (Opcional)</label>
+                                    <input
+                                        type="text"
+                                        className="form-control rounded-pill"
                                         name="municipality"
                                         placeholder="Ej. Collado Villalba y alrededores..."
                                         value={formData.municipality}
@@ -272,9 +255,9 @@ export const BecomeProvider = () => {
 
                             <div className="mb-0">
                                 <label className="form-label fw-semibold">Sede física o local (Opcional)</label>
-                                <input 
-                                    type="text" 
-                                    className="form-control" 
+                                <input
+                                    type="text"
+                                    className="form-control rounded-pill"
                                     name="address"
                                     placeholder="Ej. Calle Real 12, Local 3..."
                                     value={formData.address}
@@ -291,8 +274,8 @@ export const BecomeProvider = () => {
                 </form>
             </div>
 
-            <SuccessModal 
-                show={showSuccessModal} 
+            <SuccessModal
+                show={showSuccessModal}
                 onRedirect={handleRedirect}
                 title="¡Felicidades!"
                 message="Tu perfil de proveedor se ha creado exitosamente. Ahora puedes comenzar a publicar tus servicios en Kelaj."
