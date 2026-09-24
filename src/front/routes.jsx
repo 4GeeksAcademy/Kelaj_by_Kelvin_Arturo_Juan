@@ -1,7 +1,9 @@
 import {
-    createBrowserRouter,
-    createRoutesFromElements,
-    Route,
+  createBrowserRouter,
+  createRoutesFromElements,
+  Route,
+  Navigate,
+  Outlet
 } from "react-router-dom";
 import { Layout } from "./pages/Layout";
 import { Home } from "./pages/Home";
@@ -17,21 +19,36 @@ import ProfessionalDashboard from "./pages/ProfessionalDashboard";
 import { Settings } from "./pages/Settings";
 import { ProvidersCatalog } from "./pages/ProvidersCatalog";
 
+const RequireAuth = () => {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Outlet />;
+};
+
 export const router = createBrowserRouter(
-    createRoutesFromElements(
-      <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
-        <Route path= "/" element={<Home />} />
-        <Route path= "/catalog" element={<ProvidersCatalog />} />
-        <Route path= "/settings" element={<Settings />} />
-        <Route path="/profile/:theId" element={<Profile />} />
-        <Route path="/profile/:theId/become-provider" element={<BecomeProvider />} />
-        <Route path="/single/:theId" element={ <Single />} />  
+  createRoutesFromElements(
+    <Route path="/" element={<Layout />} errorElement={<h1>Not found!</h1>} >
+
+      <Route path="/" element={<Home />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/catalog" element={<ProvidersCatalog />} />
+      <Route path="/profile/:theId" element={<Profile />} />
+      <Route path="/single/:theId" element={<Single />} />
+      <Route path="/demo" element={<Demo />} />
+      <Route path="/register" element={<Register />} />
+      <Route path="/privacy" element={<Privacy />} />
+
+      <Route element={<RequireAuth />}>
+        <Route path="/become-provider" element={<BecomeProvider />} />
         <Route path="/checkout" element={<Checkout />} />
-        <Route path="/demo" element={<Demo />} />
-        <Route path="/privacy" element={<Privacy />} />
-        <Route path="/register" element={<Register />} />
         <Route path="/professional-panel" element={<ProfessionalDashboard />} />
-        <Route path="/login" element={<Login />} />
+        <Route path="/settings" element={<Settings />} />
       </Route>
-    )
+
+    </Route>
+  )
 );

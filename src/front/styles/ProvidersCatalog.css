@@ -1,0 +1,70 @@
+/* src/front/styles/ProvidersCatalog.css */
+.catalog-main-bg {
+    background-color: rgba(255, 255, 255, 0.5); /* Equivalente a bg-white bg-opacity-50 */
+    min-height: 100vh;
+}
+
+.provider-list-card {
+    border-top: 5px solid #0d6efd; 
+    transition: box-shadow 0.2s ease-in-out;
+}
+
+.provider-list-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.15) !important;
+}
+
+/* Forma exacta del avatar: Cuadrado con bordes redondeados */
+.avatar-square {
+    width: 85px;
+    height: 85px;
+    border-radius: 14px;
+    object-fit: cover;
+}
+
+/* Fondo unicolor con iniciales estilo Google */
+.avatar-initials {
+    width: 85px;
+    height: 85px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+}
+
+/* Filtros horizontales */
+.filters-scroll {
+    overflow-x: auto;
+    scrollbar-width: none; 
+}
+.filters-scroll::-webkit-scrollbar {
+    display: none; 
+}
+
+.filter-pill {
+    white-space: nowrap;
+    border: 1px solid #dee2e6;
+    background-color: white;
+    color: #495057;
+    border-radius: 20px;
+    padding: 6px 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.filter-pill.active {
+    background-color: #0d6efd;
+    color: white;
+    border-color: #0d6efd;
+}
+
+.tag-badge {
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 1px solid #e9ecef;
+    border-radius: 12px;
+    padding: 4px 12px;
+    font-size: 0.75rem;
+}

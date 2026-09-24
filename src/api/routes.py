@@ -254,6 +254,9 @@ def get_service(service_id):
     return jsonify(service.serialize()), 200
 
 
+# ============================
+# OBTENER DISPONIBILIDAD CON BLOQUES CALCULADOS
+# ============================
 @api.route('/services/<int:service_id>/availability', methods=['GET'])
 def get_service_availability(service_id):
     service = Service.query.get(service_id)
@@ -269,34 +272,36 @@ def get_service_availability(service_id):
     ).all()
 
     today = datetime.now().date()
-
     result = []
+    slot_id_counter = 1
+
+    # Usamos la duración estimada del servicio (o 60 min por defecto)
+    duration_minutes = service.estimated_duration if service.estimated_duration else 60
 
     for availability in availabilities:
-
         # Python: lunes=0, martes=1, ..., domingo=6
         days_ahead = (availability.day_of_week - today.weekday()) % 7
-
         date = today + timedelta(days=days_ahead)
 
-        result.append({
-            "id": availability.id,
-            "day_of_week": availability.day_of_week,
-            "date": date.isoformat(),
-            "start_time": (
-                availability.start_time.strftime("%H:%M")
-                if availability.start_time else None
-            ),
-            "end_time": (
-                availability.end_time.strftime("%H:%M")
-                if availability.end_time else None
-            )
-        })
+        # Generar bloques individuales de tiempo entre start_time y end_time
+        current_time = datetime.combine(date, availability.start_time)
+        end_datetime = datetime.combine(date, availability.end_time)
+
+        while current_time + timedelta(minutes=duration_minutes) <= end_datetime:
+            result.append({
+                "id": slot_id_counter,
+                "day_of_week": availability.day_of_week,
+                "date": date.isoformat(),
+                "start_time": current_time.strftime("%H:%M"),
+                "end_time": (current_time + timedelta(minutes=duration_minutes)).strftime("%H:%M")
+            })
+            slot_id_counter += 1
+            current_time += timedelta(minutes=duration_minutes)
 
     return jsonify(result), 200
 
 # ============================
-# CREAR CITA
+# CREAR CITA (CON PROTECCIÓN DE CONDICIÓN DE CARRERA)
 # ============================
 
 
@@ -340,7 +345,20 @@ def create_appointment():
             "error": "Formato de fecha inválido. Usa formato ISO"
         }), 400
 
-    # Crear la cita
+    # ==========================================
+    # VALIDACIÓN DE CONDICIÓN DE CARRERA (BLOQUEO)
+    # ==========================================
+    existing_appointment = Appointment.query.filter_by(
+        service_id=service.id,
+        date_time=appointment_date
+    ).filter(
+        Appointment.status != 'cancelled'  # Solo nos importan las citas activas
+    ).first()
+
+    if existing_appointment:
+        return jsonify({"error": "Lo sentimos, este horario acaba de ser reservado. Por favor, elige otro."}), 409
+
+    # Crear la cita si pasó el filtro
     appointment = Appointment(
         client_id=current_user_id,
         service_id=service.id,
@@ -527,6 +545,7 @@ def delete_payment_method(id):
 # COBRO CON TARJETA NUEVA
 # ============================
 
+
 @api.route('/charge', methods=['POST'])
 @jwt_required()
 def create_charge():
@@ -642,6 +661,8 @@ def create_charge():
 # ============================
 # COBRO CON TARJETA GUARDADA
 # ============================
+
+
 @api.route('/charge/saved', methods=['POST'])
 @jwt_required()
 def create_charge_with_saved_method():
@@ -947,6 +968,196 @@ def search_providers():
         response.append(user_data)
 
     return jsonify(response), 200
+
+# ============================
+# SUBIR GALERÍA (CLOUDINARY)
+# ============================
+# ============================
+# SUBIR PUBLICACIÓN A GALERÍA (CLOUDINARY)
+# ============================
+
+
+@api.route('/provider/gallery', methods=['POST'])
+@jwt_required()
+def upload_gallery_media():
+    user_id = int(get_jwt_identity())
+
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    # Capturamos todos los datos que vienen del modal
+    files = request.files.getlist('files')
+    title = request.form.get('title', 'Trabajo en galería')
+    description = request.form.get('description', '')
+
+    if not files or files[0].filename == '':
+        return jsonify({"error": "No se seleccionaron imágenes"}), 400
+
+    try:
+        import json
+        uploaded_urls = []
+
+        # Subimos foto por foto a Cloudinary
+        for file in files:
+            upload_result = cloudinary.uploader.upload(
+                file, folder="kelaj_gallery")
+            uploaded_urls.append(upload_result.get('secure_url'))
+
+        # Guardamos TODO como una sola publicación
+        new_post = ProviderPortfolio(
+            provider_id=provider.id,
+            title=title,
+            description=description,
+            image_urls=json.dumps(uploaded_urls)  # Agrupamos las URLs
+        )
+
+        db.session.add(new_post)
+        db.session.commit()
+
+        return jsonify({"message": "Publicación subida con éxito"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        print("Error subiendo galería a Cloudinary:", str(e))
+        return jsonify({"error": "Error interno al subir imágenes"}), 500
+
+
+# ============================
+# EDITAR PUBLICACIÓN DE GALERÍA
+# ============================
+@api.route('/provider/gallery/<int:post_id>', methods=['PUT'])
+@jwt_required()
+def edit_gallery_media(post_id):
+    user_id = int(get_jwt_identity())
+    
+    post = ProviderPortfolio.query.get(post_id)
+    if not post or post.provider.user_id != user_id:
+        return jsonify({"error": "Publicación no encontrada o no autorizada"}), 404
+
+    data = request.get_json()
+    if "title" in data:
+        post.title = data["title"]
+    if "description" in data:
+        post.description = data["description"]
+        
+    # NUEVO: Guardamos el nuevo orden de las imágenes
+    if "urls" in data:
+        import json
+        post.image_urls = json.dumps(data["urls"])
+
+    try:
+        db.session.commit()
+        return jsonify({"message": "Publicación actualizada"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Error al actualizar"}), 500
+
+# ============================
+# ELIMINAR PUBLICACIÓN DE GALERÍA
+# ============================
+@api.route('/provider/gallery/<int:post_id>', methods=['DELETE'])
+@jwt_required()
+def delete_gallery_media(post_id):
+    user_id = int(get_jwt_identity())
+    
+    post = ProviderPortfolio.query.get(post_id)
+    if not post or post.provider.user_id != user_id:
+        return jsonify({"error": "Publicación no encontrada o no autorizada"}), 404
+
+    try:
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"message": "Publicación eliminada"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": "Error al eliminar"}), 500
+
+# ============================
+# ACTUALIZAR HORARIO / DISPONIBILIDAD
+# ============================
+@api.route('/provider/schedule', methods=['PUT'])
+@jwt_required()
+def update_provider_schedule():
+    user_id = int(get_jwt_identity())
+    
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    data = request.get_json()
+    days = data.get("days", [])
+    start_time_str = data.get("startTime", "09:00")
+    end_time_str = data.get("endTime", "18:00")
+    
+    from datetime import datetime
+
+    try:
+        if hasattr(provider, 'start_time'):
+            provider.start_time = start_time_str
+        if hasattr(provider, 'end_time'):
+            provider.end_time = end_time_str
+
+        Availability.query.filter_by(provider_id=provider.id).delete()
+
+        start_t = datetime.strptime(start_time_str, "%H:%M").time()
+        end_t = datetime.strptime(end_time_str, "%H:%M").time()
+
+        for day in days:
+            new_avail = Availability(
+                provider_id=provider.id,
+                day_of_week=day,
+                start_time=start_t,
+                end_time=end_t
+            )
+            db.session.add(new_avail)
+
+        db.session.commit()
+        return jsonify({"message": "Horario actualizado exitosamente"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print("Error actualizando horario:", str(e))
+        return jsonify({"error": "Error interno al guardar el horario"}), 500
+
+    # ============================
+# CREAR NUEVO SERVICIO
+# ============================
+@api.route('/provider/services', methods=['POST'])
+@jwt_required()
+def add_provider_service():
+    user_id = int(get_jwt_identity())
+    
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    data = request.get_json()
+    
+    if not data.get("title") or not data.get("price") or not data.get("subcategory_id"):
+        return jsonify({"error": "Faltan datos obligatorios (título, precio, especialidad)"}), 400
+
+    try:
+        new_service = Service(
+            provider_id=provider.id,
+            subcategory_id=data.get("subcategory_id"),
+            title=data.get("title"),
+            # Si dejan la descripción vacía, ponemos un texto por defecto para no romper el nullable=False
+            description=data.get("description") or "Sin condiciones específicas detalladas.",
+            price=data.get("price"),
+            price_type=data.get("price_type", "hourly"),
+            estimated_duration=data.get("estimated_duration") # Puede ser nulo
+        )
+        
+        db.session.add(new_service)
+        db.session.commit()
+        
+        return jsonify({"message": "Servicio creado exitosamente"}), 201
+
+    except Exception as e:
+        db.session.rollback()
+        print("Error creando servicio:", str(e))
+        return jsonify({"error": "Error interno al crear el servicio"}), 500
 
 # ============================
 # MANEJADORES DE ERRORES GLOBALES
