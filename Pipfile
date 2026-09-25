@@ -22,8 +22,9 @@ flask-jwt-extended = "*"
 cloudinary = "*"
 stripe = "*"
 cors = "*"
-flask-socketio = "*"
+google-auth = "*"
 eventlet = "*"
+flask-socketio = "*"
 
 [requires]
 python_version = "3.13"

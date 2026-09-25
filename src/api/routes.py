@@ -11,6 +11,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import stripe
 import os
+import random
+import secrets
+import smtplib
+from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 
 cloudinary.config(
@@ -428,7 +432,8 @@ def become_provider():
         bio=data.get("bio"),
         description=data.get("description"),
         coverage_area=data.get("coverage_area"),
-        is_home_service=data.get("is_home_service", False)
+        is_home_service=data.get("is_home_service", False),
+        role="provider"
     )
 
     user.is_provider = True
@@ -969,6 +974,152 @@ def search_providers():
 
     return jsonify(response), 200
 
+
+def _send_verification_email(to_email, code):
+    server = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    port = int(os.getenv("MAIL_PORT", "587"))
+    username = os.getenv("MAIL_USERNAME", "")
+    password = os.getenv("MAIL_PASSWORD", "")
+    sender = os.getenv("MAIL_FROM", username or "noreply@kelaj.com")
+    if not username or not password:
+        return False
+    msg = MIMEText("Tu c\u00f3digo de verificaci\u00f3n de Kelaj es: " + code)
+    msg["Subject"] = "Tu c\u00f3digo de verificaci\u00f3n - Kelaj"
+    msg["From"] = sender
+    msg["To"] = to_email
+    with smtplib.SMTP(server, port) as s:
+        s.starttls()
+        s.login(username, password)
+        s.send_message(msg)
+    return True
+
+
+@api.route('/verify/start', methods=['POST'])
+@jwt_required()
+def verify_start():
+    user = User.query.filter_by(id=int(get_jwt_identity())).first()
+    if user is None:
+        return jsonify({"message": "Usuario no encontrado"}), 404
+    if not user.is_provider:
+        return jsonify({"message": "Solo los proveedores pueden verificarse"}), 400
+    user.verification_code = str(random.randint(100000, 999999))
+    db.session.commit()
+    try:
+        sent = _send_verification_email(user.email, user.verification_code)
+    except Exception as e:
+        print("Email error:", e)
+        sent = False
+    if sent:
+        return jsonify({"message": "Te enviamos un c\u00f3digo de 6 d\u00edgitos a " + user.email}), 200
+    print("DEBUG verify code for " + user.email + ": " + user.verification_code)
+    return jsonify({
+        "message": "Email no configurado en el servidor. C\u00f3digo de demostraci\u00f3n en la consola del backend.",
+        "debug_code": user.verification_code
+    }), 200
+
+
+@api.route('/verify/confirm', methods=['POST'])
+@jwt_required()
+def verify_confirm():
+    body = request.get_json() or {}
+    code = (body.get("code") or "").strip()
+    user = User.query.filter_by(id=int(get_jwt_identity())).first()
+    if user is None or not user.is_provider:
+        return jsonify({"message": "Solo los proveedores pueden verificarse"}), 400
+    if not user.verification_code or user.verification_code != code:
+        return jsonify({"message": "C\u00f3digo incorrecto. Intenta de nuevo"}), 400
+    if user.providerprofile is None:
+        db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+    else:
+        user.providerprofile.verified = True
+    user.verification_code = None
+    db.session.commit()
+    return jsonify({"message": "¡Verificado!", "user": user.serialize()}), 200
+
+
+@api.route('/verify/google', methods=['POST'])
+@jwt_required()
+def verify_google():
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+    except ImportError:
+        return jsonify({"message": "Falta instalar google-auth en el backend"}), 500
+    body = request.get_json() or {}
+    credential = body.get("credential", "")
+    if not credential:
+        return jsonify({"message": "Falta la credencial de Google"}), 400
+    try:
+        info = google_id_token.verify_oauth2_token(
+            credential, google_requests.Request(), os.getenv("GOOGLE_CLIENT_ID"))
+    except Exception:
+        return jsonify({"message": "Token de Google inv\u00e1lido"}), 400
+    google_email = (info.get("email") or "").lower()
+    user = User.query.filter_by(id=int(get_jwt_identity())).first()
+    if user is None or not user.is_provider:
+        return jsonify({"message": "Solo los proveedores pueden verificarse"}), 400
+    if (user.email or "").lower() != google_email:
+        return jsonify({"message": "La cuenta de Google no coincide con tu correo de Kelaj"}), 400
+    if user.providerprofile is None:
+        db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+    else:
+        user.providerprofile.verified = True
+    user.verification_code = None
+    db.session.commit()
+    return jsonify({"message": "\u00a1Verificado con Google!", "user": user.serialize()}), 200
+
+
+@api.route('/auth/google', methods=['POST'])
+def auth_google():
+    try:
+        from google.oauth2 import id_token as google_id_token
+        from google.auth.transport import requests as google_requests
+    except ImportError:
+        return jsonify({"message": "Falta instalar google-auth en el backend"}), 500
+    body = request.get_json() or {}
+    credential = body.get("credential", "")
+    if not credential:
+        return jsonify({"message": "Falta la credencial de Google"}), 400
+    try:
+        info = google_id_token.verify_oauth2_token(
+            credential, google_requests.Request(), os.getenv("GOOGLE_CLIENT_ID"))
+    except Exception:
+        return jsonify({"message": "Token de Google inv\u00e1lido"}), 400
+    email = (info.get("email") or "").lower().strip()
+    if not email:
+        return jsonify({"message": "Google no devolvi\u00f3 email"}), 400
+    user = User.query.filter(func.lower(User.email) == email).first()
+    created = False
+    if user is None:
+        role = body.get("role", "buyer")
+        if role not in ["buyer", "provider"]:
+            role = "buyer"
+        user = User(
+            name=info.get("given_name") or info.get("name") or email.split("@")[0],
+            last_name=info.get("family_name"),
+            email=email,
+            password_hash=generate_password_hash(secrets.token_urlsafe(24)),
+            is_provider=(role == "provider"),
+            role=role,
+            profile_image=info.get("picture")
+        )
+        db.session.add(user)
+        db.session.commit()
+        created = True
+    if user.is_provider:
+        if user.providerprofile is None:
+            db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+        else:
+            user.providerprofile.verified = True
+        db.session.commit()
+    roles = ["buyer", "provider"] if user.is_provider else ["buyer"]
+    access_token = create_access_token(identity=str(user.id), additional_claims={"roles": roles})
+    return jsonify({
+        "message": "cuenta creada con Google" if created else "login exitoso",
+        "created": created,
+        "token": access_token,
+        "user": user.serialize()
+    }), 200
 # ============================
 # SUBIR GALERÍA (CLOUDINARY)
 # ============================
@@ -1172,3 +1323,72 @@ def not_found_error(error):
 @api.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "Error interno del servidor"}), 500
+
+
+@api.route('/services/search', methods=['GET'])
+def search_services():
+    q = request.args.get('q', '')
+    cat = request.args.get('cat', type=int)
+    query = Service.query.filter_by(visible=True)
+    if q or cat:
+        query = query.join(Subcategory)
+    if cat:
+        query = query.filter(Subcategory.category_id == cat)
+    if q:
+        query = query.filter(
+            Service.title.ilike('%' + q + '%') |
+            Service.description.ilike('%' + q + '%') |
+            Subcategory.name.ilike('%' + q + '%')
+        )
+    return jsonify([s.serialize() for s in query.order_by(Service.id.desc()).limit(30).all()]), 200
+
+
+@api.route('/services/manage', methods=['GET'])
+@jwt_required()
+def admin_list_services():
+    user = db.session.get(User, int(get_jwt_identity()))
+    if not user or not any(r.role == 'admin' for r in user.roles):
+        return jsonify({"error": "No autorizado"}), 403
+    services = Service.query.order_by(Service.id.desc()).all()
+    return jsonify([{
+        "id": s.id,
+        "title": s.title,
+        "price": float(s.price),
+        "featured": s.featured,
+        "visible": s.visible,
+        "subcategory": s.subcategory.name if s.subcategory else "Sin categoria"
+    } for s in services]), 200
+
+
+@api.route('/services/<int:service_id>/featured', methods=['PUT'])
+@jwt_required()
+def toggle_service_featured(service_id):
+    user = db.session.get(User, int(get_jwt_identity()))
+    if not user or not any(r.role == 'admin' for r in user.roles):
+        return jsonify({"error": "No autorizado"}), 403
+    service = db.session.get(Service, service_id)
+    if not service:
+        return jsonify({"error": "Servicio no encontrado"}), 404
+    data = request.get_json(silent=True) or {}
+    service.featured = bool(data.get('featured', not service.featured))
+    db.session.commit()
+    return jsonify({"message": "servicio actualizado", "featured": service.featured}), 200
+
+
+def _send_verification_email(to_email, code):
+    server = os.getenv("MAIL_SERVER", "smtp.gmail.com")
+    port = int(os.getenv("MAIL_PORT", "587"))
+    username = os.getenv("MAIL_USERNAME", "")
+    password = os.getenv("MAIL_PASSWORD", "")
+    sender = os.getenv("MAIL_FROM", username or "noreply@kelaj.com")
+    if not username or not password:
+        return False
+    msg = MIMEText("Tu c\u00f3digo de verificaci\u00f3n de Kelaj es: " + code)
+    msg["Subject"] = "Tu c\u00f3digo de verificaci\u00f3n - Kelaj"
+    msg["From"] = sender
+    msg["To"] = to_email
+    with smtplib.SMTP(server, port) as s:
+        s.starttls()
+        s.login(username, password)
+        s.send_message(msg)
+    return True

@@ -1,5 +1,6 @@
 import React from "react"
 import { useNavigate, Link } from "react-router-dom"
+import useGlobalReducer from "../hooks/useGlobalReducer";
 import "../styles/Home.css"
 import "../index.css"
 
@@ -125,6 +126,9 @@ export const Home = () => {
                     </div>
                 </div>
             </section>
+
+
+
             
         </div>
     );

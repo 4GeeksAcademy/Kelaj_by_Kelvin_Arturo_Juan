@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { toggleFollow, getProfile, getFollowing, deleteGalleryMedia } from '../services/userServices';
 import "../styles/profileView.css"
+import { VerifiedBadge } from "../components/VerifiedBadge";
 
 import { AddMediaModal } from '../components/UserComponents/AddMediaModal';
 import { ViewMediaModal } from '../components/UserComponents/ViewMediaModal';
@@ -157,7 +158,7 @@ const fetchProfileData = async (isInitialLoad = true) => {
                         <span className="position-absolute bottom-0 end-0 p-2 bg-success border border-3 border-white rounded-circle status-indicator"></span>
                     </div>
 
-                    <h3 className="fw-bold mb-1">{user.name} {user.last_name}</h3>
+                    <h3 className="fw-bold mb-1 d-flex align-items-center gap-2">{user.name} {user.last_name} {user.verified && <VerifiedBadge size={22} />}</h3>
 
                     {isProvider ? (
                         <>
