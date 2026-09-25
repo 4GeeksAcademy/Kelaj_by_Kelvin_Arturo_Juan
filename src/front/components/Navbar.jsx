@@ -1,12 +1,17 @@
-import React from "react";
-import { Link, useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
-import "../styles/Home.css"
-
+import "../styles/Home.css";
 
 export const Navbar = () => {
   const { store, dispatch } = useGlobalReducer();
   const navigate = useNavigate();
+  const location = useLocation();
+  
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchType, setSearchType] = useState("service"); 
+
+  const isCatalogView = location.pathname.includes("/catalog");
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -15,12 +20,36 @@ export const Navbar = () => {
     navigate("/");
   };
 
-  return (
-    <nav className="navbar navbar-expand-lg navbar-light bg-white py-3 border-bottom">
-      <div className="container">
+  // Se ejecuta con CADA letra que el usuario escribe
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+    if (isCatalogView) {
+      // replace: true evita llenar el historial del navegador con cada letra
+      navigate(`/catalog?q=${val}&type=${searchType}`, { replace: true });
+    }
+  };
 
-        {/* LOGO */}
-        <Link className="navbar-brand fw-bold text-dark d-flex align-items-center gap-2" to="/">
+  // Se ejecuta al cambiar el dropdown entre Personas/Profesión
+  const handleTypeChange = (type) => {
+    setSearchType(type);
+    if (isCatalogView && searchQuery) {
+      navigate(`/catalog?q=${searchQuery}&type=${type}`, { replace: true });
+    }
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery && !isCatalogView) {
+      navigate(`/catalog?q=${searchQuery}&type=${searchType}`);
+    }
+  };
+
+  return (
+    <nav className="navbar bg-opacity-50 navbar-expand-lg navbar-light bg-white py-3 border-bottom shadow-sm">
+      <div className="container align-items-center">
+
+        <Link className="navbar-brand fw-bold text-dark d-flex align-items-center gap-2 me-md-4" to="/">
           <div className="bg-primary text-white rounded d-flex align-items-center justify-content-center"
             style={{ width: "35px", height: "35px", fontSize: "14px" }}>
             KL
@@ -28,16 +57,56 @@ export const Navbar = () => {
           Kelaj
         </Link>
 
-        <div className="d-flex align-items-center gap-3 ms-auto">
+        {isCatalogView && (
+            <form className="d-none d-md-flex flex-grow-1 mx-4" onSubmit={handleSearchSubmit} style={{ maxWidth: "550px" }}>
+                <div className="input-group shadow-sm rounded-pill border bg-white align-items-center">
+                    
+                    <button
+                        className="btn btn-white border-0 rounded-start-pill dropdown-toggle fw-semibold text-dark ps-4 pe-2 shadow-none"
+                        type="button"
+                        data-bs-toggle="dropdown"
+                        aria-expanded="false"
+                        style={{ backgroundColor: "transparent" }}
+                    >
+                        {searchType === "service" ? "Profesión" : "Personas"}
+                    </button>
+                    
+                    <ul className="dropdown-menu shadow-sm border-0 mt-2 rounded-3">
+                        <li>
+                            <button type="button" className="dropdown-item py-2" onClick={() => handleTypeChange("service")}>
+                                <i className="bi bi-briefcase me-2 text-primary"></i>Buscar por profesión
+                            </button>
+                        </li>
+                        <li>
+                            <button type="button" className="dropdown-item py-2" onClick={() => handleTypeChange("person")}>
+                                <i className="bi bi-person me-2 text-primary"></i>Buscar por persona
+                            </button>
+                        </li>
+                    </ul>
 
-          {/* SI NO ESTÁ LOGUEADO */}
+                    <div className="border-end" style={{ height: "20px", borderColor: "#e9ecef" }}></div>
+
+                    <input 
+                        type="text" 
+                        className="form-control border-0 shadow-none bg-transparent ps-3" 
+                        placeholder={searchType === "service" ? "Ej. Abogado, Fontanero..." : "Ej. Laura Martínez..."} 
+                        value={searchQuery}
+                        onChange={handleSearchChange}
+                    />
+
+                    <button type="submit" className="btn border-0 rounded-end-pill pe-4 text-primary shadow-none" style={{ backgroundColor: "transparent" }}>
+                        <i className="bi bi-search fw-bold"></i>
+                    </button>
+                </div>
+            </form>
+        )}
+
+        <div className="d-flex align-items-center gap-3 ms-auto">
           {!store.user ? (
             <Link to="/login" className="btn btn-light border rounded-pill px-4 fw-semibold d-flex align-items-center gap-2">
               <i className="bi bi-person"></i> Acceder
             </Link>
           ) : (
-
-            /* SI ESTÁ LOGUEADO */
             <div className="dropdown">
               <button
                 className="btn btn-light border rounded-pill px-3 fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
@@ -55,55 +124,36 @@ export const Navbar = () => {
               </button>
 
               <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
-
-                {/* PERFIL */}
                 <li>
                   <Link className="dropdown-item" to={`/profile/${store.user.id}`}>
                     <i className="bi bi-person me-2"></i> Mi Perfil
                   </Link>
                 </li>
-
-                {/* SI ES PROVEEDOR → 2 PANELES */}
-                {store.user.role === "provider" && (
-                  <>
-                    <li>
-                      <button className="dropdown-item" onClick={() => navigate("/professional-panel")}>
-                        <i className="bi bi-briefcase me-2"></i> Panel profesional
-                      </button>
-                    </li>
-
-                    <li>
-                      <button className="dropdown-item" onClick={() => navigate("/client-panel")}>
-                        <i className="bi bi-people me-2"></i> Panel cliente
-                      </button>
-                    </li>
-                    <li>
-                      <Link className="dropdown-item" to="/settings">
-                        <i className="bi bi-gear me-2"></i> Configuración
-                      </Link>
-                    </li>
-                  </>
-                )}
-
-                {/* SI ES CLIENTE → opción para convertirse en proveedor */}
-                {store.user.role === "buyer" && (
+                <li>
+                  <button className="dropdown-item" onClick={() => navigate("/client-panel")}>
+                    <i className="bi bi-people me-2"></i> Panel cliente
+                  </button>
+                </li>
+                {store.user.is_provider && (
                   <li>
-                    <Link className="dropdown-item text-primary fw-semibold" to={`/profile/${store.user.id}/become-provider`}>
-                      <i className="bi bi-rocket-takeoff me-2"></i> Quiero ofrecer mi servicio
+                    <button className="dropdown-item" onClick={() => navigate("/professional-panel")}>
+                      <i className="bi bi-briefcase me-2"></i> Panel profesional
+                    </button>
+                  </li>
+                )}
+                {!store.user.is_provider && (
+                  <li>
+                    <Link className="dropdown-item text-primary fw-semibold" to={`/become-provider`}>
+                      <i className="bi bi-rocket-takeoff me-2"></i> Quiero ofrecer mis servicios
                     </Link>
                   </li>
                 )}
-
-                {/* CONFIGURACIÓN */}
                 <li>
                   <Link className="dropdown-item" to="/settings">
                     <i className="bi bi-gear me-2"></i> Configuración
                   </Link>
                 </li>
-
                 <li><hr className="dropdown-divider" /></li>
-
-                {/* CERRAR SESIÓN */}
                 <li>
                   <button className="dropdown-item text-danger" onClick={handleLogout}>
                     <i className="bi bi-box-arrow-right me-2"></i> Cerrar sesión

@@ -1,6 +1,31 @@
 body {
   font-family: "Inter", sans-serif;
-  background-image: url("./assets/Gemini_Generated_Image_7nk55l7nk55l7nk5.jpg")
+}
+
+.reparaciones-button {
+  background-image: url("https://t4.ftcdn.net/jpg/00/90/91/95/360_F_90919557_cgaQl5J8FAbTV8JTSBDu7IbD0sladNO6.jpg");
+  background-size: cover;
+  background-position: center;
+}
+.belleza-button {
+  background-image: url("https://www.brightbeautyvanity.com/cdn/shop/articles/best-make-up-brands.jpg?v=1728677076&width=2048");
+  background-size: cover;
+  background-position: center;
+}
+.clases-button {
+  background-image: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSB-LlXK3W_Yaxv5U5cdZlGumqERDwXBDQSDZfuSSQZvF-sS575gq9O16er&s=10");
+  background-size: cover;
+  background-position: center;
+}
+.cuidados-button {
+  background-image: url("https://c-care.ca/wp-content/uploads/2019/04/5-important-benefits-of-homecare.jpg");
+  background-size: cover;
+  background-position: center;
+}
+.mas-button {
+  background-image: url("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQBbsyfprtPnQqmsrfclJH6gFpqCHzAOzp9jCIJpCwnWw&s=10");
+  background-size: cover;
+  background-position: center;
 }
 
 .fw-bold {

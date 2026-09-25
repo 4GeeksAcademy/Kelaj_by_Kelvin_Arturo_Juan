@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate,Link } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import "../styles/juan.css";
 
@@ -10,6 +10,7 @@ const heroImage = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?
 export const Login = () => {
   const { dispatch } = useGlobalReducer();
   const navigate = useNavigate();
+
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -78,31 +79,27 @@ export const Login = () => {
     setLoading(true);
 
     try {
-      const response = await fetch(`${backendUrl}/api/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData)
-      });
+      // 1. Usamos el servicio limpio (él se encarga del fetch y los errores)
+      const data = await loginUser(formData);
 
-      const data = await response.json();
+      // Compatibilidad por si tu backend envía el token con otro nombre
+      const validToken = data.token || data.access_token;
+      const validUser = data.user;
 
-      if (!response.ok) {
-        setError(data.message);
-        setLoading(false);
-        return;
-      }
-
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("user", JSON.stringify(data.user));
+      // 2. Guardamos la sesión
+      localStorage.setItem("token", validToken);
+      localStorage.setItem("user", JSON.stringify(validUser));
 
       dispatch({
         type: "set_user",
-        payload: { user: data.user, token: data.token }
+        payload: { user: validUser, token: validToken }
       });
 
+      // 3. Redirigimos al inicio
       navigate("/");
     } catch (err) {
-      setError("Ocurrió un error al conectar con el servidor");
+      setError(err.message || "Ocurrió un error al conectar con el servidor");
+    } finally {
       setLoading(false);
     }
   };
@@ -119,64 +116,61 @@ export const Login = () => {
         <div className="card-login">
           {error && <div className="alert alert-danger py-2">{error}</div>}
 
-          <form onSubmit={handleSubmit}>
+          <form onSubmit={handleSubmit} className="bg-white p-4 rounded-4 bg-opacity-50 shadow-sm border">
+            <h3 className="text-center fw-bold mb-4">Iniciar sesión</h3>
+
             <div className="mb-3">
-              <label className="form-label">Email</label>
+              <label htmlFor="email" className="form-label fw-semibold small">E-mail</label>
+
               <input
                 type="email"
-                className="form-control"
+                className="form-control rounded-pill my-1 px-3 py-2"
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                required
               />
             </div>
 
-            <div className="mb-3">
-              <label className="form-label">Contraseña</label>
+            <div className="mb-4">
+              <label htmlFor="password" className="form-label fw-semibold small">Contraseña</label>
               <input
                 type="password"
-                className="form-control"
+                className="form-control rounded-pill my-1 px-3 py-2"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
+                required
               />
             </div>
 
+            {GOOGLE_CLIENT_ID ? (
+              <div className="d-flex justify-content-center">
+                <div id="google-login-btn"></div>
+              </div>
+            ) : null}
+
             <button
               type="submit"
-              className="btn btn-primary w-100"
+              className="btn btn-primary w-100 py-2 fw-semibold rounded-pill"
               disabled={!formData.email || !formData.password || loading}
             >
-              {loading ? "Ingresando..." : "Iniciar sesión"}
+              {loading ? (
+                <><span className="spinner-border spinner-border-sm me-2"></span>Ingresando...</>
+              ) : (
+                "Iniciar sesión"
+              )}
             </button>
+
+            {/* Usamos <Link> en lugar de <a> para evitar la recarga completa del navegador */}
+            <p className="mt-4 text-center small">
+              ¿No tienes cuenta? crea una <Link to="/register" className="text-primary fw-bold text-decoration-none">Aquí</Link>
+            </p>
           </form>
 
-          <div className="d-flex align-items-center my-3">
-            <hr className="flex-grow-1" />
-            <span className="mx-2 text-muted">o</span>
-            <hr className="flex-grow-1" />
-          </div>
-
-          {GOOGLE_CLIENT_ID ? (
-            <div className="d-flex justify-content-center">
-              <div id="google-login-btn"></div>
-            </div>
-          ) : null}
-
-          <p className="mt-3 mb-0">
-            ¿No tienes cuenta? <a href="/Register">crea una Aquí</a>
-          </p>
-        </div>
-      </div>
-
-      <div
-        className="right"
-        style={{ backgroundImage: `url(${heroImage})` }}
-      >
-        <div className="overlay">
-          <p>El profesional que necesitas, a un clic de distancia.</p>
         </div>
       </div>
     </div>
+
   );
 };

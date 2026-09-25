@@ -23,6 +23,8 @@ cloudinary = "*"
 stripe = "*"
 cors = "*"
 google-auth = "*"
+eventlet = "*"
+flask-socketio = "*"
 
 [requires]
 python_version = "3.13"

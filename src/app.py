@@ -4,6 +4,7 @@ This module takes care of starting the API Server, Loading the DB and Adding the
 import os
 import stripe
 from flask_cors import CORS
+from flask_socketio import SocketIO, emit, join_room
 from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
@@ -13,15 +14,17 @@ from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
 from flask_jwt_extended import JWTManager
+from datetime import timedelta
 
+app = Flask(__name__)
 CORS(api)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
 ENV = "development" if os.getenv("FLASK_DEBUG") == "1" else "production"
 static_file_dir = os.path.join(os.path.dirname(
     os.path.realpath(__file__)), '../dist/')
-app = Flask(__name__)
 app.url_map.strict_slashes = False
 
-from flask_cors import CORS
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 # database condiguration
@@ -35,6 +38,7 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 app.config["JWT_SECRET_KEY"] = os.getenv("FLASK_APP_KEY", "super-secret-key")
+app.config["JWT_ACCESS_TOKEN_EXPIRES"] = timedelta(hours=24)
 jwt = JWTManager(app)
 
 MIGRATE = Migrate(app, db, compare_type=True)
@@ -51,6 +55,36 @@ app.register_blueprint(api, url_prefix='/api')
 def handle_invalid_usage(error):
     return jsonify(error.to_dict()), error.status_code
 
+# user entra en chat
+@socketio.on('join')
+def on_join(data):
+    room = data['room']
+    join_room(room)
+
+# useer envia un mensaje
+@socketio.on('send_message')
+def handle_message(data):
+    room = data['room']
+    sender_id = data['sender_id']
+    receiver_id = data['receiver_id']
+    text = data['text']
+
+    with app.app_context():
+        try:
+            new_message = Message(
+                sender_id=sender_id,
+                receiver_id=receiver_id,
+                content=text
+            )
+            db.session.add(new_message)
+            db.session.commit()
+
+            data['timestamp'] = new_message.timestamp.strftime("%H:%M")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error al guardar el mensaje: {e}")
+
+    emit('receive_message', data, room=room)
 
 
 @app.route('/')
@@ -70,4 +104,4 @@ def serve_any_other_file(path):
 
 if __name__ == '__main__':
     PORT = int(os.environ.get('PORT', 3001))
-    app.run(host='0.0.0.0', port=PORT, debug=True)
+    socketio.run(app, host='0.0.0.0', port=PORT, debug=True)

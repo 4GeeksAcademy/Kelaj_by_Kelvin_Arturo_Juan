@@ -11,12 +11,14 @@ followers_association = Table(
     Column('followed_id', Integer, ForeignKey('users.id'), primary_key=True)
 )
 
+
 class User(db.Model):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(120), nullable=False)
-    email: Mapped[str] = mapped_column(String(120), unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(
+        String(120), unique=True, nullable=False)
     last_name: Mapped[str] = mapped_column(String(60), nullable=True)
     role: Mapped[str] = mapped_column(String(50), nullable=True)
     city: Mapped[str] = mapped_column(String(100), nullable=True)
@@ -30,6 +32,10 @@ class User(db.Model):
         Boolean(), nullable=False, default=False)
     date_created: Mapped[DateTime] = mapped_column(
         DateTime, default=db.func.now())
+    stripe_customer_id: Mapped[str] = mapped_column(
+        String(120),
+        nullable=True
+    )
     dni: Mapped[str] = mapped_column(String(20), nullable=True)
     verification_code: Mapped[str] = mapped_column(String(6), nullable=True)
 
@@ -51,6 +57,7 @@ class User(db.Model):
         back_populates="client")
     roles: Mapped[list["UserRole"]] = relationship(
         back_populates="user")
+
     def serialize(self):
         return {
             "id": self.id,
@@ -70,7 +77,7 @@ class User(db.Model):
             "followers_count": len(self.followers),
             "following_count": len(self.following),
             "roles": [r.role for r in self.roles],
-            "providerprofile": self.providerprofile.serialize_basic() if self.providerprofile else None
+            "providerprofile": self.providerprofile.serialize() if self.providerprofile else None
         }
 
     def serialize_basic(self):
@@ -112,14 +119,42 @@ class ProviderProfile(db.Model):
     coverage_area: Mapped[str] = mapped_column(String(255), nullable=True)
     role: Mapped[str] = mapped_column(String(50), nullable=True)
     is_home_service: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
+    start_time = db.Column(db.String(10), default="09:00")
+    end_time = db.Column(db.String(10), default="18:00")
+    created_at: Mapped[DateTime] = mapped_column(
+        DateTime, default=db.func.now())
     user: Mapped["User"] = relationship(back_populates="providerprofile")
     services: Mapped[list["Service"]] = relationship(back_populates="provider")
-    availabilities: Mapped[list["Availability"]] = relationship(back_populates="provider")
-    schedule: Mapped[list["ProviderSchedule"]] = relationship(back_populates="provider")
-    portfolio: Mapped[list["ProviderPortfolio"]] = relationship(back_populates="provider")
+    availabilities: Mapped[list["Availability"]
+                           ] = relationship(back_populates="provider")
+    schedule: Mapped[list["ProviderSchedule"]
+                     ] = relationship(back_populates="provider")
+    portfolio: Mapped[list["ProviderPortfolio"]
+                      ] = relationship(back_populates="provider")
 
+    # ============================
+    # SERIALIZADOR DEL PERFIL
+    # ============================
     def serialize(self):
+        # 1. Recopilamos las reseñas
+        lista_resenas = []
+        for servicio in self.services:
+            for cita in servicio.appointments:
+                if cita.review:
+                    lista_resenas.append({
+                        "id": cita.review.id,
+                        "rating": cita.review.rating,
+                        "comment": cita.review.comment,
+                        "date": cita.review.created_at.strftime("%d/%m/%Y") if cita.review.created_at else "",
+                        "client_name": cita.client.name if cita.client else "Cliente",
+                        "service_title": servicio.title
+                    })
+
+        # 2. Consultamos los días de disponibilidad en la base de datos
+        disponibilidad = Availability.query.filter_by(provider_id=self.id).all()
+        lista_dias = [{"id": a.id, "day_of_week": a.day_of_week} for a in disponibilidad]
+
+        # 3. Retornamos todo el paquete a React
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -128,7 +163,14 @@ class ProviderProfile(db.Model):
             "bio": self.bio,
             "coverage_area": self.coverage_area,
             "is_home_service": self.is_home_service,
-            "services": [service.serialize_basic() for service in self.services]
+            "services": [service.serialize_basic() for service in self.services],
+            "reviews": lista_resenas,
+            "gallery": [port.serialize() for port in self.portfolio] if self.portfolio else [],
+            
+            # ¡AQUÍ ESTÁ LA MAGIA DEL HORARIO!
+            "start_time": self.start_time if self.start_time else "09:00",
+            "end_time": self.end_time if self.end_time else "18:00",
+            "availabilities": lista_dias
         }
 
     def serialize_basic(self):
@@ -142,9 +184,11 @@ class ProviderProfile(db.Model):
 class PaymentMethod(db.Model):
     __tablename__ = "payment_methods"
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False)
     provider: Mapped[str] = mapped_column(String(20), nullable=False)
-    stripe_payment_method_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    stripe_payment_method_id: Mapped[str] = mapped_column(
+        String(120), nullable=False)
     brand: Mapped[str] = mapped_column(String(20), nullable=False)
     last_four_digits: Mapped[str] = mapped_column(String(4), nullable=False)
     created_at: Mapped[DateTime] = mapped_column(
@@ -156,8 +200,8 @@ class PaymentMethod(db.Model):
             "brand": self.brand,
             "last_four_digits": self.last_four_digits
         }
-      
-      
+
+
 class Category(db.Model):
     __tablename__ = "categories"
 
@@ -206,6 +250,12 @@ class Service(db.Model):
     title: Mapped[str] = mapped_column(String(150), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False)
     price: Mapped[float] = mapped_column(Numeric(10, 2), nullable=False)
+    
+    # ============================
+    # NUEVA COLUMNA DE PRECIO
+    # ============================
+    price_type: Mapped[str] = mapped_column(String(20), nullable=True, default="hourly")
+    
     estimated_duration: Mapped[int] = mapped_column(Integer, nullable=True)
     visible: Mapped[bool] = mapped_column(Boolean, default=True)
     featured: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -223,6 +273,7 @@ class Service(db.Model):
             "title": self.title,
             "description": self.description,
             "price": float(self.price),
+            "price_type": self.price_type, # <-- Añadido
             "estimated_duration": self.estimated_duration,
             "visible": self.visible,
             "featured": self.featured,
@@ -235,6 +286,7 @@ class Service(db.Model):
             "id": self.id,
             "title": self.title,
             "price": float(self.price),
+            "price_type": self.price_type, # <-- Añadido
             "estimated_duration": self.estimated_duration,
             "visible": self.visible
         }
@@ -293,6 +345,7 @@ class Appointment(db.Model):
     transaction: Mapped["Transaction"] = relationship(
         back_populates="appointment", uselist=False)
 
+
 class ProviderSchedule(db.Model):
     __tablename__ = "provider_schedule"
 
@@ -302,9 +355,10 @@ class ProviderSchedule(db.Model):
     start_time: Mapped[Time] = mapped_column(Time, nullable=False)
     end_time: Mapped[Time] = mapped_column(Time, nullable=False)
 
-    provider: Mapped["ProviderProfile"] = relationship(back_populates="schedule")
-      
-      
+    provider: Mapped["ProviderProfile"] = relationship(
+        back_populates="schedule")
+
+
 class Transaction(db.Model):
     __tablename__ = "transactions"
 
@@ -341,10 +395,12 @@ class Review(db.Model):
     __tablename__ = "reviews"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    appointment_id: Mapped[int] = mapped_column(ForeignKey("appointments.id"), unique=True, nullable=False)
+    appointment_id: Mapped[int] = mapped_column(
+        ForeignKey("appointments.id"), unique=True, nullable=False)
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
-    comment: Mapped[str] = mapped_column(Text,nullable=True)
-    created_at: Mapped[DateTime] = mapped_column(DateTime,default=db.func.now())
+    comment: Mapped[str] = mapped_column(Text, nullable=True)
+    created_at: Mapped[DateTime] = mapped_column(
+        DateTime, default=db.func.now())
     appointment: Mapped["Appointment"] = relationship(back_populates="review")
     media: Mapped[list["Media"]] = relationship(back_populates="review")
 
@@ -383,24 +439,56 @@ class Media(db.Model):
         }
 
 
-class ProviderPortfolio(db.Model):
-    __tablename__ = "provider_portfolio"
+class Message(db.Model):
+    __tablename__ = "messages"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    provider_id: Mapped[int] = mapped_column(ForeignKey("provider_profile.id"))
-    image_url: Mapped[str] = mapped_column(String(255), nullable=False)
-    description: Mapped[str] = mapped_column(Text, nullable=True)
-    uploaded_at: Mapped[DateTime] = mapped_column(
+    sender_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False)
+    receiver_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    timestamp: Mapped[DateTime] = mapped_column(
         DateTime, default=db.func.now())
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
 
-    provider: Mapped["ProviderProfile"] = relationship(
-        back_populates="portfolio")
+    sender: Mapped["User"] = relationship(foreign_keys=[sender_id])
+    receiver: Mapped["User"] = relationship(foreign_keys=[receiver_id])
 
     def serialize(self):
         return {
             "id": self.id,
-            "provider_id": self.provider_id,
-            "image_url": self.image_url,
-            "description": self.description,
-            "uploaded_at": self.uploaded_at.isoformat() if self.uploaded_at else None
+            "sender_id": self.sender_id,
+            "receiver_id": self.receiver_id,
+            "content": self.content,
+            "timestamp": self.timestamp.isoformat() if self.timestamp else None,
+            "is_read": self.is_read
+        }
+
+
+class ProviderPortfolio(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    provider_id = db.Column(db.Integer, db.ForeignKey(
+        'provider_profile.id'), nullable=False)
+    title = db.Column(db.String(120), nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    # Guardaremos el array de URLs como texto JSON
+    image_urls = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=db.func.current_timestamp())
+    provider = db.relationship("ProviderProfile", back_populates="portfolio")
+
+    def serialize(self):
+        import json
+        try:
+            # Convertimos el texto JSON de vuelta a una lista de Python
+            urls_list = json.loads(self.image_urls)
+        except:
+            urls_list = []
+
+        return {
+            "id": self.id,
+            "title": self.title or "Trabajo en galería",
+            "description": self.description or "Sin descripción",
+            "urls": urls_list,
+            "date": self.created_at.strftime("%d/%m/%Y") if self.created_at else "Fecha desconocida"
         }
