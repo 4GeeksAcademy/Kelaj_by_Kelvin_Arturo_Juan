@@ -68,3 +68,36 @@ export const getProviderTransactions = async () => {
     return [];
   }
 };
+
+// PERFIL
+export const getFullProviderProfile = async (userId) => {
+  const token = localStorage.getItem("token");
+  const url = `${import.meta.env.VITE_BACKEND_URL}/api/users/${userId}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      const text = await res.text();
+      console.error(
+        `Respuesta no-JSON desde ${url}. ¿VITE_BACKEND_URL está bien configurada?`,
+        text.slice(0, 200)
+      );
+      return null;
+    }
+
+    if (!res.ok) {
+      const errorData = await res.json();
+      console.error("Error al obtener el perfil completo:", errorData);
+      return null;
+    }
+
+    return await res.json();
+  } catch (error) {
+    console.error("Error en getFullProviderProfile:", error);
+    return null;
+  }
+};

@@ -3,38 +3,63 @@ import { getProviderTransactions } from "../../services/professional";
 
 export default function History() {
   const [transactions, setTransactions] = useState([]);
-  const [filter, setFilter] = useState("all");
+  const [activeFilter, setActiveFilter] = useState("all");
 
   useEffect(() => {
-    getProviderTransactions().then(setTransactions);
+    getProviderTransactions().then(data => setTransactions(Array.isArray(data) ? data : []));
   }, []);
 
+  const filters = [
+    { id: "all", label: "Todas" },
+    { id: "paid", label: "Completadas" },
+    { id: "cancelled", label: "Canceladas" }
+  ];
+
   const filtered = transactions.filter(t =>
-    filter === "all" ? true : t.status === filter
+    activeFilter === "all" ? true : t.status === activeFilter
   );
 
   return (
-    <div className="history-container">
-      <h2>Historial</h2>
+    <div className="history-section">
+      <div className="section-header">
+        <h2>Historial de transacciones</h2>
+      </div>
 
-      <select onChange={e => setFilter(e.target.value)}>
-        <option value="all">Todas</option>
-        <option value="paid">Completadas</option>
-        <option value="cancelled">Canceladas</option>
-      </select>
+      {/* Reemplazamos el select por los pills horizontales */}
+      <div className="filter-tabs">
+        {filters.map(f => (
+          <button 
+            key={f.id} 
+            className={`tab-pill ${activeFilter === f.id ? "active" : ""}`}
+            onClick={() => setActiveFilter(f.id)}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
 
-      {Array.isArray(filtered) && filtered.length > 0 ? (
-        filtered.map(t => (
-          <div key={t.id} className="transaction-card">
-            <strong>{t.service_title}</strong>
-            <span>{t.amount} €</span>
-            <span>{new Date(t.transaction_date).toLocaleDateString()}</span>
-          </div>
-        ))
-      ) : (
-        <p>No hay transacciones disponibles</p>
-      )}
-
+      <div className="reservations-list">
+        {filtered.length > 0 ? (
+          filtered.map(t => (
+            <div key={t.id} className="reservation-row">
+              <div className="client-info">
+                <strong>{t.service_title || `Transacción #${t.id}`}</strong>
+                <span className="meta">
+                  📅 {new Date(t.transaction_date).toLocaleDateString()} 
+                </span>
+              </div>
+              <div className="reservation-actions">
+                <span className="price">{t.amount} €</span>
+                <span className={`status-tag ${t.status === 'paid' ? 'confirmed' : 'pending'}`}>
+                  {t.status === 'paid' ? 'Completada' : t.status}
+                </span>
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="empty-state">No hay transacciones disponibles en esta categoría.</p>
+        )}
+      </div>
     </div>
   );
 }

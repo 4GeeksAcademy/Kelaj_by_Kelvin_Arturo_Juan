@@ -1,12 +1,9 @@
 import random
 from datetime import datetime, time, timedelta
 from werkzeug.security import generate_password_hash
-
-# Asegúrate de importar tu app y db correctamente según la estructura de tu proyecto
 from app import app 
 from api.models import db, User, ProviderProfile, Category, Subcategory, Service, Availability, Appointment, Review
 
-# 1. CATÁLOGO AMPLIADO DE CATEGORÍAS Y SUBCATEGORÍAS
 CATEGORIAS = {
     "Limpieza": {
         "desc": "Servicios de limpieza para hogares y empresas.",
@@ -38,7 +35,6 @@ CATEGORIAS = {
     }
 }
 
-# Lista completa de provincias de España sincronizada con el frontend
 CIUDADES = [
     "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Barcelona",
     "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca",
@@ -74,7 +70,6 @@ def generate_seed():
         password = generate_password_hash("123456")
         proveedores_creados = []
         
-        # 2. MEGA LISTA DE PERFILES (2 por Subcategoría)
         perfiles = [
             ("Maria", "Gomez", "Limpieza del Hogar", "Experta en limpieza profunda y organización de espacios. Llevo mis propios productos ecológicos.", "Limpieza general por horas", 15.00),
             ("Juan", "Perez", "Limpieza del Hogar", "Limpieza eficiente y de confianza para tu tranquilidad. Especialista en cocinas y baños.", "Limpieza a fondo de cocinas y baños", 18.00),
@@ -112,12 +107,10 @@ def generate_seed():
             ("Paula", "Herrera", "Informática", "Configuración de redes, extensores de WiFi y recuperación de datos perdidos.", "Configuración de Wi-Fi y redes", 35.00)
         ]
 
-        # Iterar sobre las plantillas y crear los registros
         for i, (nombre, apellido, sub_cat, bio, titulo_servicio, precio) in enumerate(perfiles):
             email = f"{nombre.lower()}.{apellido.lower()}@kelaj.com"
-            ciudad = random.choice(CIUDADES) # Ahora seleccionará de forma aleatoria entre las 52 provincias
+            ciudad = random.choice(CIUDADES) 
             
-            # 1. Crear Usuario
             user = User(
                 name=nombre,
                 last_name=apellido,
@@ -133,11 +126,10 @@ def generate_seed():
             db.session.add(user)
             db.session.commit()
             
-            # 2. Crear Perfil de Proveedor
             provider = ProviderProfile(
                 user_id=user.id,
                 phone=user.phone,
-                verified=random.choice([True, True, False]), # Más probabilidad de estar verificado
+                verified=random.choice([True, True, False]), 
                 bio=f"{sub_cat} profesional en {ciudad}.",
                 description=bio,
                 coverage_area=f"{ciudad} y alrededores",
@@ -146,7 +138,6 @@ def generate_seed():
             db.session.add(provider)
             db.session.commit()
             
-            # 3. Crear el Servicio
             servicio = Service(
                 provider_id=provider.id,
                 subcategory_id=subcategorias_db[sub_cat],
@@ -158,7 +149,6 @@ def generate_seed():
             )
             db.session.add(servicio)
             
-            # 4. Crear Horarios (Lunes a Viernes de 9 a 18h)
             for dia in range(1, 6): 
                 horario = Availability(
                     provider_id=provider.id,

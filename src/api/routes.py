@@ -1120,7 +1120,7 @@ def update_provider_schedule():
         print("Error actualizando horario:", str(e))
         return jsonify({"error": "Error interno al guardar el horario"}), 500
 
-    # ============================
+# ============================
 # CREAR NUEVO SERVICIO
 # ============================
 @api.route('/provider/services', methods=['POST'])
@@ -1158,6 +1158,44 @@ def add_provider_service():
         db.session.rollback()
         print("Error creando servicio:", str(e))
         return jsonify({"error": "Error interno al crear el servicio"}), 500
+
+# ============================
+# PANEL CLIENTE
+# ============================
+
+@api.route('/client/dashboard', methods=['GET'])
+@jwt_required()
+def get_client_dashboard():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    appointments = user.appointments if hasattr(user, 'appointments') else []
+    completed_services = [a for a in appointments if getattr(a, 'status', '') == 'completed']
+    active_reservations = [a for a in appointments if getattr(a, 'status', '') in ['in_progress', 'upcoming', 'confirmed', 'pending']]
+
+    following_list = [{
+        "id": f.id,
+        "name": f.name,
+        "last_name": f.last_name,
+        "profile_image": f.profile_image,
+        "category": f.role or "Especialista"
+    } for f in user.following] if hasattr(user, 'following') else []
+
+    return jsonify({
+        "user_info": user.serialize(),
+        "kpis": {
+            "active_reservations": len(active_reservations),
+            "completed_services": len(completed_services),
+            "total_invested": len(completed_services) * 120,
+            "following_count": len(following_list)
+        },
+        "upcoming_reservations": [],
+        "following_professionals": following_list,
+        "latest_services": []
+    }), 200
 
 # ============================
 # MANEJADORES DE ERRORES GLOBALES
