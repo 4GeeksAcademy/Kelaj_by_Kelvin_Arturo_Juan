@@ -60,13 +60,40 @@ export const Register = () => {
   };
 
   return (
-    <div className="container my-5" style={{ maxWidth: "400px" }}>
-      <form onSubmit={handleSubmit} className="bg-white bg-opacity-50 p-4 rounded-4 shadow-sm border">
+    <div className="container my-5" style={{ maxWidth: "800px" }}>
+      <form onSubmit={handleSubmit} className="bg-white bg-opacity-50 p-4 p-md-5 rounded-4 shadow-sm border">
         
-        {/* Título reactivo */}
+        {/* INDICADOR DE 3 PASOS (Solo visible si se registra como proveedor) */}
         <h3 className="fw-bold text-center mb-4">
           {formData.role === "provider" ? "Únete como Profesional" : "Crear cuenta"}
         </h3>
+        {formData.role === "provider" && (
+          <div className="d-flex justify-content-between align-items-center mb-4 px-1">
+            <div className="text-center">
+              <div className="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center fw-bold shadow-sm" style={{ width: "36px", height: "36px" }}>
+                1
+              </div>
+            </div>
+
+            <div className="flex-grow-1 mx-2 border-top border-2 border-secondary-subtle"></div>
+
+            <div className="text-center">
+              <div className="rounded-circle bg-light text-muted border d-inline-flex align-items-center justify-content-center fw-bold" style={{ width: "36px", height: "36px" }}>
+                2
+              </div>
+            </div>
+
+            <div className="flex-grow-1 mx-2 border-top border-2 border-secondary-subtle"></div>
+
+            <div className="text-center">
+              <div className="rounded-circle bg-light text-muted border d-inline-flex align-items-center justify-content-center fw-bold" style={{ width: "36px", height: "36px" }}>
+                3
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Título reactivo */}
 
         {error && <div className="alert alert-danger rounded-3">{error}</div>}
 

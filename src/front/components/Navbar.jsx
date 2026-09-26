@@ -30,6 +30,13 @@ export const Navbar = () => {
     }
   };
 
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    if (isCatalogView) {
+      navigate("/catalog", { replace: true });
+    }
+  };
+
   // Se ejecuta al cambiar el dropdown entre Personas/Profesión
   const handleTypeChange = (type) => {
     setSearchType(type);
@@ -68,13 +75,22 @@ export const Navbar = () => {
                         aria-expanded="false"
                         style={{ backgroundColor: "transparent" }}
                     >
-                        {searchType === "service" ? "Profesión" : "Personas"}
+                        {searchType === "profession"
+                            ? "Profesión"
+                            : searchType === "service"
+                            ? "Servicio"
+                            : "Personas"}
                     </button>
                     
                     <ul className="dropdown-menu shadow-sm border-0 mt-2 rounded-3">
                         <li>
+                            <button type="button" className="dropdown-item py-2" onClick={() => handleTypeChange("profession")}>
+                                <i className="bi bi-award me-2 text-primary"></i>Buscar por profesión
+                            </button>
+                        </li>
+                        <li>
                             <button type="button" className="dropdown-item py-2" onClick={() => handleTypeChange("service")}>
-                                <i className="bi bi-briefcase me-2 text-primary"></i>Buscar por profesión
+                                <i className="bi bi-briefcase me-2 text-primary"></i>Buscar por servicio ofrecido
                             </button>
                         </li>
                         <li>
@@ -89,12 +105,32 @@ export const Navbar = () => {
                     <input 
                         type="text" 
                         className="form-control border-0 shadow-none bg-transparent ps-3" 
-                        placeholder={searchType === "service" ? "Ej. Abogado, Fontanero..." : "Ej. Laura Martínez..."} 
+                        placeholder={
+                            searchType === "profession"
+                                ? "Ej. Abogado, Fontanero..."
+                                : searchType === "service"
+                                ? "Ej. Instalación eléctrica, Clases de inglés..."
+                                : "Ej. Laura Martínez..."
+                        } 
                         value={searchQuery}
                         onChange={handleSearchChange}
+                        onBlur={() => setSearchQuery("")}
                     />
 
-                    <button type="submit" className="btn border-0 rounded-end-pill pe-4 text-primary shadow-none" style={{ backgroundColor: "transparent" }}>
+                    {searchQuery && (
+                        <button
+                            type="button"
+                            className="btn border-0 px-2 text-muted shadow-none d-flex align-items-center"
+                            style={{ backgroundColor: "transparent" }}
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={handleClearSearch}
+                            title="Limpiar búsqueda"
+                        >
+                            <i className="bi bi-x-circle-fill"></i>
+                        </button>
+                    )}
+
+                    <button type="submit" className="btn border-0 rounded-end-pill pe-4 ps-2 text-primary shadow-none" style={{ backgroundColor: "transparent" }}>
                         <i className="bi bi-search fw-bold"></i>
                     </button>
                 </div>
