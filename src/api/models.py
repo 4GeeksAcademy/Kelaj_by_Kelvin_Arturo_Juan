@@ -158,7 +158,7 @@ class ProviderProfile(db.Model):
             "bio": self.bio,
             "coverage_area": self.coverage_area,
             "is_home_service": self.is_home_service,
-            "services": [service.serialize_basic() for service in self.services],
+            "services": [service.serialize() for service in self.services],
             "reviews": lista_resenas,
             "gallery": [port.serialize() for port in self.portfolio] if self.portfolio else [],
             
@@ -336,6 +336,18 @@ class Appointment(db.Model):
 
     transaction: Mapped["Transaction"] = relationship(
         back_populates="appointment", uselist=False)
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "client_name": f"{self.client.name} {self.client.last_name or ''}".strip() if self.client else "Cliente",
+            "service_id": self.service_id,
+            "service_title": self.service.title if self.service else "Servicio",
+            "date_time": self.date_time.isoformat() if self.date_time else None,
+            "status": self.status,
+            "has_review": True if self.review else False
+        }
 
 
 class ProviderSchedule(db.Model):

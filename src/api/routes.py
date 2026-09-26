@@ -4,8 +4,9 @@ This module takes care of starting the API Server, Loading the DB and Adding the
 import cloudinary
 import cloudinary.uploader
 from flask import Flask, request, jsonify, url_for, Blueprint
+from flask_socketio import SocketIO, emit, join_room
 from sqlalchemy import func
-from api.models import db, User, UserRole, Service, Transaction, Appointment, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review
+from api.models import db, User, UserRole, Media, Service, Transaction, Appointment, Message, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review
 from api.utils import generate_sitemap, APIException
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
@@ -156,23 +157,77 @@ def delete_user(user_id):
     if not user:
         return jsonify({"error": "Usuario no encontrado"}), 404
 
-    try:
-        UserRole.query.filter_by(user_id=user.id).delete()
-        PaymentMethod.query.filter_by(user_id=user.id).delete()
-        Transaction.query.filter_by(user_id=user.id).delete()
+    # 1. Bloquear si tiene citas pendientes como cliente
+    pending_as_client = Appointment.query.filter(
+        Appointment.client_id == user.id,
+        Appointment.status.in_(["pending", "upcoming", "in_progress"])
+    ).first()
 
+    if pending_as_client:
+        return jsonify({
+            "error": "No puedes eliminar tu cuenta porque tienes citas reservadas pendientes o en curso."
+        }), 400
+
+    # 2. Bloquear si es proveedor y tiene citas pendientes por atender
+    if user.providerprofile:
+        pending_as_provider = Appointment.query.join(Service).filter(
+            Service.provider_id == user.providerprofile.id,
+            Appointment.status.in_(["pending", "upcoming", "in_progress"])
+        ).first()
+
+        if pending_as_provider:
+            return jsonify({
+                "error": "No puedes eliminar tu cuenta porque tienes servicios con citas pendientes de atender."
+            }), 400
+
+    try:
+        from api.models import Media, Message, ProviderSchedule
+
+        # Limpiar seguidores y mensajes de chat
         user.followers.clear()
         user.following.clear()
+        Message.query.filter(
+            db.or_(Message.sender_id == user.id, Message.receiver_id == user.id)
+        ).delete(synchronize_session=False)
 
+        # Limpiar historial de citas pasadas como cliente (y sus reseñas/pagos)
+        client_appointments = Appointment.query.filter_by(client_id=user.id).all()
+        for app in client_appointments:
+            if app.review:
+                Media.query.filter_by(review_id=app.review.id).delete()
+                db.session.delete(app.review)
+            if app.transaction:
+                db.session.delete(app.transaction)
+            db.session.delete(app)
+
+        # Si es proveedor, limpiar primero las dependencias de sus servicios
         if user.providerprofile:
             provider_id = user.providerprofile.id
 
-            # Borramos primero las dependencias del proveedor
-            Service.query.filter_by(provider_id=provider_id).delete()
+            provider_services = Service.query.filter_by(provider_id=provider_id).all()
+            for srv in provider_services:
+                srv_appointments = Appointment.query.filter_by(service_id=srv.id).all()
+                for app in srv_appointments:
+                    if app.review:
+                        Media.query.filter_by(review_id=app.review.id).delete()
+                        db.session.delete(app.review)
+                    if app.transaction:
+                        db.session.delete(app.transaction)
+                    db.session.delete(app)
+
+                Media.query.filter_by(service_id=srv.id).delete()
+                db.session.delete(srv)
+
             Availability.query.filter_by(provider_id=provider_id).delete()
+            ProviderSchedule.query.filter_by(provider_id=provider_id).delete()
             ProviderPortfolio.query.filter_by(provider_id=provider_id).delete()
 
             db.session.delete(user.providerprofile)
+
+        # Borrar roles, métodos de pago y transacciones restantes
+        UserRole.query.filter_by(user_id=user.id).delete()
+        PaymentMethod.query.filter_by(user_id=user.id).delete()
+        Transaction.query.filter_by(user_id=user.id).delete()
 
         db.session.delete(user)
         db.session.commit()
@@ -694,7 +749,7 @@ def create_charge_with_saved_method():
             amount=int(float(data["amount"]) * 100),
             currency="eur",
             customer=user.stripe_customer_id,
-            payment_method=payment_method_id,
+            payment_method=method.stripe_payment_method_id, # <-- Corregido
             payment_method_types=["card"],
             confirm=True
         )
@@ -785,6 +840,8 @@ def provider_services():
 def toggle_service(id):
     user_id = int(get_jwt_identity())
     provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
 
     service = Service.query.filter_by(id=id, provider_id=provider.id).first()
     if not service:
@@ -795,31 +852,6 @@ def toggle_service(id):
 
     return jsonify(service.serialize()), 200
 
-
-@api.route('/provider/appointments', methods=['GET'])
-@jwt_required()
-def provider_appointments():
-    user_id = int(get_jwt_identity())
-    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
-
-    appointments = Appointment.query.join(Service).filter(
-        Service.provider_id == provider.id
-    ).all()
-
-    return jsonify([a.serialize() for a in appointments]), 200
-
-
-@api.route('/provider/transactions', methods=['GET'])
-@jwt_required()
-def provider_transactions():
-    user_id = int(get_jwt_identity())
-    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
-
-    transactions = Transaction.query.join(Appointment).join(Service).filter(
-        Service.provider_id == provider.id
-    ).all()
-
-    return jsonify([t.serialize() for t in transactions]), 200
 
 # para obtener los perfiles publicos:
 
@@ -1159,6 +1191,55 @@ def add_provider_service():
         print("Error creando servicio:", str(e))
         return jsonify({"error": "Error interno al crear el servicio"}), 500
 
+    # ============================
+# ELIMINAR SERCICIO
+# ============================
+@api.route('/provider/services/<int:service_id>', methods=['DELETE'])
+@jwt_required()
+def delete_provider_service(service_id):
+    user_id = int(get_jwt_identity())
+    provider = ProviderProfile.query.filter_by(user_id=user_id).first()
+
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    service = Service.query.filter_by(id=service_id, provider_id=provider.id).first()
+    if not service:
+        return jsonify({"error": "Servicio no encontrado"}), 404
+
+    # 1. VERIFICAR SI HAY CITAS ACTIVAS / PENDIENTES
+    active_appointments = Appointment.query.filter(
+        Appointment.service_id == service.id,
+        Appointment.status.in_(["pending", "upcoming", "in_progress"])
+    ).first()
+
+    if active_appointments:
+        return jsonify({
+            "error": "No puedes eliminar este servicio porque tiene citas pendientes o en curso. Cancélalas o complétalas primero."
+        }), 400
+
+    # 2. SI SOLO HAY CITAS PASADAS (completadas/canceladas), LIMPIAMOS Y BORRAMOS
+    try:
+        past_appointments = Appointment.query.filter_by(service_id=service.id).all()
+        for app in past_appointments:
+            if app.review:
+                Media.query.filter_by(review_id=app.review.id).delete()
+                db.session.delete(app.review)
+            if app.transaction:
+                db.session.delete(app.transaction)
+            db.session.delete(app)
+
+        Media.query.filter_by(service_id=service.id).delete()
+        db.session.delete(service)
+        db.session.commit()
+
+        return jsonify({"message": "Servicio eliminado correctamente"}), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error eliminando servicio: {str(e)}")
+        return jsonify({"error": "Error interno al eliminar el servicio"}), 500
+    
 # ============================
 # MANEJADORES DE ERRORES GLOBALES
 # ============================
@@ -1172,3 +1253,350 @@ def not_found_error(error):
 @api.errorhandler(500)
 def internal_error(error):
     return jsonify({"error": "Error interno del servidor"}), 500
+
+# ============================
+# SUBIR FOTO DE PORTADA
+# ============================
+@api.route('/users/<int:user_id>/cover_image', methods=['POST'])
+@jwt_required()
+def upload_cover_image(user_id):
+    current_user_id = get_jwt_identity()
+
+    if int(current_user_id) != user_id:
+        return jsonify({"error": "No autorizado para cambiar esta imagen"}), 403
+
+    if 'file' not in request.files:
+        return jsonify({"error": "No se envió ninguna imagen"}), 400
+
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({"error": "Nombre de archivo vacío"}), 400
+
+    try:
+        # Subimos la imagen a Cloudinary en una carpeta específica
+        upload_result = cloudinary.uploader.upload(
+            file, folder="kelaj_covers")
+
+        image_url = upload_result.get('secure_url')
+
+        user = User.query.get(user_id)
+        user.cover_image = image_url
+        db.session.commit()
+
+        return jsonify({
+            "message": "Imagen de portada actualizada",
+            "cover_image": image_url
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error subiendo la portada: {str(e)}"}), 500
+
+
+# ============================
+# DAR DE BAJA PERFIL DE PROVEEDOR
+# ============================
+@api.route('/users/<int:user_id>/provider', methods=['DELETE'])
+@jwt_required()
+def downgrade_provider_profile(user_id):
+    current_user_id = get_jwt_identity()
+
+    if int(current_user_id) != user_id:
+        return jsonify({"error": "No autorizado para realizar esta acción"}), 403
+
+    user = User.query.get(user_id)
+    if not user or not user.is_provider or not user.providerprofile:
+        return jsonify({"error": "El usuario no tiene un perfil de proveedor activo"}), 404
+
+    # 1. Bloquear si tiene citas pendientes como CLIENTE
+    pending_as_client = Appointment.query.filter(
+        Appointment.client_id == user.id,
+        Appointment.status.in_(["pending", "upcoming", "in_progress"])
+    ).first()
+
+    if pending_as_client:
+        return jsonify({
+            "error": "No puedes dar de baja tu perfil de proveedor porque tienes citas reservadas pendientes o en curso como cliente."
+        }), 400
+
+    provider_id = user.providerprofile.id
+
+    # 2. Bloquear si tiene citas pendientes como PROVEEDOR
+    pending_as_provider = Appointment.query.join(Service).filter(
+        Service.provider_id == provider_id,
+        Appointment.status.in_(["pending", "upcoming", "in_progress"])
+    ).first()
+
+    if pending_as_provider:
+        return jsonify({
+            "error": "No puedes dar de baja tu perfil de proveedor porque tienes servicios con citas pendientes o en curso."
+        }), 400
+
+    try:
+        from api.models import Media, ProviderSchedule
+
+        # Eliminamos los servicios y sus citas pasadas (reseñas y transacciones asociadas)
+        provider_services = Service.query.filter_by(provider_id=provider_id).all()
+        for srv in provider_services:
+            srv_appointments = Appointment.query.filter_by(service_id=srv.id).all()
+            for app in srv_appointments:
+                if app.review:
+                    Media.query.filter_by(review_id=app.review.id).delete()
+                    db.session.delete(app.review)
+                if app.transaction:
+                    db.session.delete(app.transaction)
+                db.session.delete(app)
+
+            Media.query.filter_by(service_id=srv.id).delete()
+            db.session.delete(srv)
+
+        # Eliminamos horarios, disponibilidad y portafolio del proveedor
+        Availability.query.filter_by(provider_id=provider_id).delete()
+        ProviderSchedule.query.filter_by(provider_id=provider_id).delete()
+        ProviderPortfolio.query.filter_by(provider_id=provider_id).delete()
+
+        # Eliminamos el perfil de la tabla ProviderProfile
+        db.session.delete(user.providerprofile)
+        
+        # Le quitamos el rol de proveedor al usuario
+        user.is_provider = False
+        user.role = "buyer"
+        UserRole.query.filter_by(user_id=user.id, role="provider").delete()
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Perfil de proveedor dado de baja exitosamente. Ahora eres un cliente estándar.",
+            "user": user.serialize()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al dar de baja el perfil de proveedor: {str(e)}")
+        return jsonify({"error": "Error interno al dar de baja el perfil"}), 500
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error al dar de baja el perfil de proveedor: {str(e)}")
+        return jsonify({"error": "Error interno al dar de baja el perfil"}), 500
+
+
+# ============================
+# OBTENER LISTA DE CONVERSACIONES (BANDEJA DE ENTRADA)
+# ============================
+@api.route('/conversations', methods=['GET'])
+@jwt_required()
+def get_conversations():
+    current_user_id = int(get_jwt_identity())
+
+    # Obtenemos todos los mensajes donde participa el usuario, del más reciente al más antiguo
+    messages = Message.query.filter(
+        db.or_(
+            Message.sender_id == current_user_id,
+            Message.receiver_id == current_user_id
+        )
+    ).order_by(Message.timestamp.desc()).all()
+
+    conversations_map = {}
+    for msg in messages:
+        other_user_id = msg.receiver_id if msg.sender_id == current_user_id else msg.sender_id
+
+        if other_user_id not in conversations_map:
+            other_user = User.query.get(other_user_id)
+            if not other_user:
+                continue
+
+            conversations_map[other_user_id] = {
+                "user": {
+                    "id": other_user.id,
+                    "name": other_user.name,
+                    "last_name": other_user.last_name,
+                    "profile_image": other_user.profile_image,
+                    "is_provider": other_user.is_provider,
+                    "city": other_user.city
+                },
+                "last_message": msg.content,
+                "last_timestamp": msg.timestamp.isoformat() if msg.timestamp else None,
+                "unread_count": 0
+            }
+
+        # Sumar mensajes no leídos que nos envió ese contacto
+        if msg.sender_id == other_user_id and msg.receiver_id == current_user_id and not msg.is_read:
+            conversations_map[other_user_id]["unread_count"] += 1
+
+    return jsonify(list(conversations_map.values())), 200
+
+
+# ============================
+# OBTENER HISTORIAL DE CHAT ENTRE DOS USUARIOS
+# ============================
+@api.route('/messages/<int:user_id>', methods=['GET'])
+@jwt_required()
+def get_messages(user_id):
+    current_user_id = int(get_jwt_identity())
+
+    # Marcar como leídos los mensajes pendientes que nos envió este usuario
+    unread_messages = Message.query.filter_by(
+        sender_id=user_id,
+        receiver_id=current_user_id,
+        is_read=False
+    ).all()
+
+    for msg in unread_messages:
+        msg.is_read = True
+    if unread_messages:
+        db.session.commit()
+
+    # Buscamos mensajes en ambas direcciones ordenados cronológicamente
+    messages = Message.query.filter(
+        db.or_(
+            db.and_(Message.sender_id == current_user_id, Message.receiver_id == user_id),
+            db.and_(Message.sender_id == user_id, Message.receiver_id == current_user_id)
+        )
+    ).order_by(Message.timestamp.asc()).all()
+
+    return jsonify([msg.serialize() for msg in messages]), 200
+
+
+# ============================
+# ENVIAR / GUARDAR MENSAJE
+# ============================
+@api.route('/messages', methods=['POST'])
+@jwt_required()
+def send_message():
+    current_user_id = int(get_jwt_identity())
+    data = request.get_json()
+
+    if not data:
+        return jsonify({"error": "Debes enviar datos en formato JSON"}), 400
+
+    receiver_id = data.get("receiver_id")
+    content = (data.get("content") or "").strip()
+
+    if not receiver_id or not content:
+        return jsonify({"error": "receiver_id y content son obligatorios"}), 400
+
+    if int(receiver_id) == current_user_id:
+        return jsonify({"error": "No puedes enviarte mensajes a ti mismo"}), 400
+
+    receiver = User.query.get(receiver_id)
+    if not receiver:
+        return jsonify({"error": "Usuario destinatario no encontrado"}), 404
+
+    try:
+        new_message = Message(
+            sender_id=current_user_id,
+            receiver_id=int(receiver_id),
+            content=content
+        )
+        db.session.add(new_message)
+        db.session.commit()
+
+        return jsonify(new_message.serialize()), 201
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error guardando mensaje: {str(e)}")
+        return jsonify({"error": "Error interno al enviar el mensaje"}), 500
+
+        # ============================
+# OBTENER CITAS DEL CLIENTE
+# ============================
+@api.route('/client/appointments', methods=['GET'])
+@jwt_required()
+def get_client_appointments():
+    current_user_id = int(get_jwt_identity())
+    appointments = Appointment.query.filter_by(client_id=current_user_id).order_by(Appointment.date_time.asc()).all()
+
+    result = []
+    for app in appointments:
+        provider_name = "Desconocido"
+        if app.service and app.service.provider and app.service.provider.user:
+            provider_name = f"{app.service.provider.user.name} {app.service.provider.user.last_name or ''}".strip()
+
+        result.append({
+            "id": app.id,
+            "service_id": app.service_id,
+            "service_title": app.service.title if app.service else "Servicio Eliminado",
+            "provider_name": provider_name,
+            "date_time": app.date_time.isoformat() if app.date_time else None,
+            "status": app.status
+        })
+
+    return jsonify(result), 200
+
+
+# ============================
+# MODIFICAR FECHA/HORA DE CITA
+# ============================
+@api.route('/appointments/<int:appointment_id>', methods=['PUT'])
+@jwt_required()
+def update_appointment(appointment_id):
+    current_user_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(appointment_id)
+
+    if not appointment:
+        return jsonify({"error": "Cita no encontrada"}), 404
+
+    if int(appointment.client_id) != current_user_id:
+        return jsonify({"error": "No autorizado para modificar esta cita"}), 403
+
+    data = request.get_json()
+    new_date_time = data.get("date_time")
+
+    if not new_date_time:
+        return jsonify({"error": "Debes enviar la nueva fecha y hora (date_time)"}), 400
+
+    try:
+        parsed_date = datetime.fromisoformat(new_date_time.replace("Z", "+00:00"))
+    except ValueError:
+        return jsonify({"error": "Formato de fecha inválido"}), 400
+
+    # Comprobar que el nuevo horario no esté ocupado
+    conflict = Appointment.query.filter(
+        Appointment.service_id == appointment.service_id,
+        Appointment.date_time == parsed_date,
+        Appointment.id != appointment.id,
+        Appointment.status != "cancelled"
+    ).first()
+
+    if conflict:
+        return jsonify({"error": "Ese horario ya está ocupado. Elige otro."}), 409
+
+    try:
+        appointment.date_time = parsed_date
+        db.session.commit()
+        return jsonify({"message": "Cita modificada correctamente"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error al modificar la cita: {str(e)}"}), 500
+
+
+# ============================
+# ELIMINAR / CANCELAR CITA
+# ============================
+@api.route('/appointments/<int:appointment_id>', methods=['DELETE'])
+@jwt_required()
+def delete_appointment(appointment_id):
+    current_user_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(appointment_id)
+
+    if not appointment:
+        return jsonify({"error": "Cita no encontrada"}), 404
+
+    if int(appointment.client_id) != current_user_id:
+        return jsonify({"error": "No autorizado para eliminar esta cita"}), 403
+
+    try:
+        if appointment.review:
+            Media.query.filter_by(review_id=appointment.review.id).delete()
+            db.session.delete(appointment.review)
+        if appointment.transaction:
+            db.session.delete(appointment.transaction)
+
+        db.session.delete(appointment)
+        db.session.commit()
+        return jsonify({"message": "Cita eliminada correctamente"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Error al eliminar la cita: {str(e)}"}), 500

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { toggleFollow, getProfile, getFollowing, deleteGalleryMedia } from '../services/userServices';
+import { toggleFollow, getProfile, getFollowing, deleteGalleryMedia, getClientAppointments, getProviderAppointments, updateAppointment, cancelAppointment } from '../services/userServices';
+import { ClientAgendaModal } from '../components/UserComponents/ClientAgendaModal';
 import "../styles/profileView.css"
 
 import { AddMediaModal } from '../components/UserComponents/AddMediaModal';
@@ -32,6 +33,9 @@ export const Profile = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState("");
+    const [showClientAgenda, setShowClientAgenda] = useState(false);
+    const [clientAppointments, setClientAppointments] = useState([]);
+    const [providerAppointments, setProviderAppointments] = useState([]);
 
     const [isFollowing, setIsFollowing] = useState(false);
     const [followLoading, setFollowLoading] = useState(false);
@@ -46,9 +50,9 @@ export const Profile = () => {
     // =================================================================
     // NUEVA FUNCIÓN REUTILIZABLE: Carga los datos silenciosamente
     // =================================================================
-const fetchProfileData = async (isInitialLoad = true) => {
+    const fetchProfileData = async (isInitialLoad = true) => {
         if (isInitialLoad) setLoading(true);
-        
+
         try {
             const storedUser = JSON.parse(sessionStorage.getItem("user") || localStorage.getItem("user") || "null");
             const targetId = theId || (storedUser ? storedUser.id : null);
@@ -59,10 +63,10 @@ const fetchProfileData = async (isInitialLoad = true) => {
             }
 
             const data = await getProfile(targetId);
-            
+
             if (data) {
                 setUser(data);
-                
+
                 if (isInitialLoad) {
                     setActiveTab(data.is_provider ? "servicios" : "historial");
                 }
@@ -79,9 +83,25 @@ const fetchProfileData = async (isInitialLoad = true) => {
         }
     };
 
+    const loadAllAppointments = async () => {
+        const clientApps = await getClientAppointments();
+        setClientAppointments(clientApps);
+
+        if (user?.is_provider) {
+            const provApps = await getProviderAppointments();
+            setProviderAppointments(provApps);
+        }
+    };
+
     useEffect(() => {
         fetchProfileData(true);
     }, [theId]);
+
+    const handleOpenAgenda = async () => {
+        setShowClientAgenda(true);
+        const appointments = await getClientAppointments();
+        setClientAppointments(appointments);
+    };
 
     const handleFollowClick = async () => {
         if (!localStorage.getItem("token")) {
@@ -137,7 +157,8 @@ const fetchProfileData = async (isInitialLoad = true) => {
                                     <><i className={`bi ${isFollowing ? 'bi-person-check' : 'bi-person-plus'}`}></i> {isFollowing ? 'Siguiendo' : 'Seguir'}</>
                                 )}
                             </button>
-                        ) : <div></div>}
+                        ) : <div>
+                        </div>}
 
                         {isOwnProfile && (
                             <Link to="/settings" className="btn btn-sm bg-white text-dark border rounded-circle shadow-sm d-flex align-items-center justify-content-center settings-btn">
@@ -183,25 +204,51 @@ const fetchProfileData = async (isInitialLoad = true) => {
                             <div className="d-flex justify-content-center gap-3">
                                 {!isOwnProfile ? (
                                     <>
-                                        <button className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm"><i className="bi bi-calendar-event me-2"></i>Agendar</button>
-                                        <button className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm"><i className="bi bi-chat-dots me-2"></i>Mensaje</button>
-                                        <button className="btn btn-white border rounded-circle shadow-sm d-flex align-items-center justify-content-center action-btn-circle"><i className="bi bi-share"></i></button>
+                                        <Link
+                                            to={`/chat/${user.id}`}
+                                            className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm"
+                                        >
+                                            <i className="bi bi-chat-dots me-2"></i>Mensaje
+                                        </Link>
+                                        <button className="btn btn-white border rounded-circle shadow-sm d-flex align-items-center justify-content-center action-btn-circle">
+                                            <i className="bi bi-share"></i>
+                                        </button>
                                     </>
                                 ) : (
                                     <>
-                                        <Link to="/agenda" className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm"><i className="bi bi-calendar-check me-2"></i>Agenda</Link>
-                                        <Link to="/chats" className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm"><i className="bi bi-chat-left-text me-2"></i>Chats</Link>
+                                        <Link to="/agenda" className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+                                            <i className="bi bi-calendar-check me-2"></i>Agenda
+                                        </Link>
+                                        <Link to="/chat" className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">
+                                            <i className="bi bi-chat-left-text me-2"></i>Chats
+                                        </Link>
                                     </>
                                 )}
                             </div>
                         </>
                     ) : (
                         <div className="mt-2">
-                            <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 fw-semibold">
-                                <i className="bi bi-person-badge me-1"></i> Cliente Kelaj
-                            </span>
-                            <p className="text-muted mt-3 mb-0 small"><i className="bi bi-geo-alt-fill"></i> {user.city || "Ubicación no especificada"}</p>
+                            <div className="mt-2">
+                                <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25 rounded-pill px-3 py-2 fw-semibold">
+                                    <i className="bi bi-person-badge me-1"></i> Cliente Kelaj
+                                </span>
+                                <p className="text-muted mt-2 mb-3 small"><i className="bi bi-geo-alt-fill"></i> {user.city || "Ubicación no especificada"}</p>
+
+                                {/* BOTONES DE AGENDA Y CHAT PARA EL CLIENTE */}
+                                {isOwnProfile && (
+                                    <div className="d-flex justify-content-center gap-3 mt-3">
+                                        <button onClick={handleOpenAgenda} className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+                                            <i className="bi bi-calendar-check me-2"></i>Agenda
+                                        </button>
+                                        <Link to="/chats" className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">
+                                            <i className="bi bi-chat-left-text me-2"></i>Chats
+                                        </Link>
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
+
                     )}
                 </div>
 
@@ -254,13 +301,13 @@ const fetchProfileData = async (isInitialLoad = true) => {
                                 ))}
                             </ul>
 
-                            <div className="p-4 bg-white">
+                            <div className="p-4 bg-white" style={{ height: "500px", overflowY: "auto", border: "1px solid #ccc" }}>
                                 {activeTab === "servicios" && (
                                     <div>
                                         <div className="d-flex justify-content-between align-items-center mb-4">
                                             <h5 className="fw-bold mb-0">Servicios</h5>
                                             {isOwnProfile && (
-                                                <button 
+                                                <button
                                                     className="btn btn-sm btn-outline-primary rounded-pill px-3"
                                                     onClick={() => setShowAddService(true)}
                                                 >
@@ -513,14 +560,14 @@ const fetchProfileData = async (isInitialLoad = true) => {
             )}
 
             <AddServiceModal
-                        show={showAddService}
-                        onClose={() => setShowAddService(false)}
-                        onSuccess={() => {
-                            setShowAddService(false);
-                            fetchProfileData(false); // Recarga silenciosa
-                        }}
-                    />
-                    
+                show={showAddService}
+                onClose={() => setShowAddService(false)}
+                onSuccess={() => {
+                    setShowAddService(false);
+                    fetchProfileData(false); // Recarga silenciosa
+                }}
+            />
+
             <ViewMediaModal
                 show={!!selectedMedia}
                 media={selectedMedia}
@@ -539,6 +586,29 @@ const fetchProfileData = async (isInitialLoad = true) => {
                             fetchProfileData(false); // ACTUALIZA SOLO LA DATA, SIN RECARGAR LA PÁGINA
                         } else {
                             alert("No se pudo eliminar la publicación.");
+                        }
+                    }
+                }}
+            />
+
+            <ClientAgendaModal
+                show={showClientAgenda}
+                onClose={() => setShowClientAgenda(false)}
+                isProvider={Boolean(isProvider)}
+                clientAppointments={clientAppointments}
+                providerAppointments={providerAppointments}
+                onUpdateAppointment={async (appId, newDateTime) => {
+                    const success = await updateAppointment(appId, newDateTime);
+                    if (success) {
+                        await loadAllAppointments();
+                    }
+                    return success;
+                }}
+                onCancelAppointment={async (appId) => {
+                    if (window.confirm("¿Estás seguro de eliminar esta cita?")) {
+                        const success = await cancelAppointment(appId);
+                        if (success) {
+                            await loadAllAppointments();
                         }
                     }
                 }}
