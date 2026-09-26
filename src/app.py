@@ -9,7 +9,7 @@ from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from api.utils import APIException, generate_sitemap
-from api.models import db
+from api.models import db, Message
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
@@ -56,35 +56,25 @@ def handle_invalid_usage(error):
     return jsonify(error.to_dict()), error.status_code
 
 # user entra en chat
+# user entra en chat
 @socketio.on('join')
 def on_join(data):
-    room = data['room']
-    join_room(room)
+    room = data.get('room')
+    if room:
+        join_room(room)
 
-# useer envia un mensaje
+# user envia un mensaje
 @socketio.on('send_message')
 def handle_message(data):
-    room = data['room']
-    sender_id = data['sender_id']
-    receiver_id = data['receiver_id']
-    text = data['text']
+    room = data.get('room')
+    receiver_id = data.get('receiver_id')
 
-    with app.app_context():
-        try:
-            new_message = Message(
-                sender_id=sender_id,
-                receiver_id=receiver_id,
-                content=text
-            )
-            db.session.add(new_message)
-            db.session.commit()
+    # include_self=False evita que el emisor reciba de vuelta su propio mensaje duplicado
+    if room:
+        emit('receive_message', data, room=room, include_self=False)
 
-            data['timestamp'] = new_message.timestamp.strftime("%H:%M")
-        except Exception as e:
-            db.session.rollback()
-            print(f"Error al guardar el mensaje: {e}")
-
-    emit('receive_message', data, room=room)
+    if receiver_id:
+        emit('new_message_notification', data, room=f"user_{receiver_id}", include_self=False)
 
 
 @app.route('/')

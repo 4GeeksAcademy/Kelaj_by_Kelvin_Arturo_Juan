@@ -12,6 +12,11 @@ const provincesList = [
     "Teruel", "Toledo", "Valencia", "Valladolid", "Vizcaya", "Zamora", "Zaragoza", "Ceuta", "Melilla"
 ];
 
+const googleColors = [
+    "#1a73e8", "#d93025", "#188038", "#e37400", 
+    "#9334e6", "#007b83", "#c2185b", "#3949ab"
+];
+
 export const ProfileSettings = () => {
     const { store, dispatch } = useGlobalReducer();
     
@@ -33,6 +38,23 @@ export const ProfileSettings = () => {
         phone: store.user?.phone || "",
         city: store.user?.city || ""
     });
+
+    const getUserInitials = () => {
+        const firstName = store.user?.name?.trim() || "";
+        const lastName = store.user?.last_name?.trim() || "";
+        const firstInitial = firstName ? firstName.charAt(0).toUpperCase() : "";
+        const lastInitial = lastName ? lastName.charAt(0).toUpperCase() : "";
+        return (firstInitial + lastInitial) || "U";
+    };
+
+    const getAvatarColor = () => {
+        const nameStr = `${store.user?.name || ""}${store.user?.last_name || ""}`;
+        let hash = 0;
+        for (let i = 0; i < nameStr.length; i++) {
+            hash = nameStr.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return googleColors[Math.abs(hash) % googleColors.length];
+    };
 
     const handleProfileImageUpload = async (e) => {
         const file = e.target.files[0];
@@ -56,11 +78,14 @@ export const ProfileSettings = () => {
                 const updatedUser = { ...store.user, profile_image: data.profile_image };
                 localStorage.setItem("user", JSON.stringify(updatedUser));
                 dispatch({ type: "set_user", payload: { user: updatedUser, token } });
+            } else {
+                alert(data.error || "Error al actualizar la foto de perfil");
             }
         } catch (error) {
             console.error("Error al subir imagen", error);
         } finally {
             setUploadingImage(false);
+            e.target.value = "";
         }
     };
 
@@ -86,11 +111,14 @@ export const ProfileSettings = () => {
                 const updatedUser = { ...store.user, cover_image: data.cover_image };
                 localStorage.setItem("user", JSON.stringify(updatedUser));
                 dispatch({ type: "set_user", payload: { user: updatedUser, token } });
+            } else {
+                alert(data.error || "Error al actualizar la foto de portada");
             }
         } catch (error) {
             console.error("Error al subir portada", error);
         } finally {
             setUploadingCover(false);
+            e.target.value = "";
         }
     };
 
@@ -126,7 +154,8 @@ export const ProfileSettings = () => {
         }
     };
 
-    const userProfileImage = store.user?.profile_image || "https://res.cloudinary.com/dtg0cwzzw/image/upload/v1727788484/default-avatar_g9j8x5.png";
+    const hasProfileImage = Boolean(store.user?.profile_image);
+    const userProfileImage = store.user?.profile_image;
     const userCoverImage = store.user?.cover_image || "https://images.unsplash.com/photo-1579546929518-9e396f3cc809?w=800";
 
     return (
@@ -135,12 +164,27 @@ export const ProfileSettings = () => {
             <div className="card border-0 shadow-sm mb-4">
                 <div className="card-body p-4 d-flex align-items-center justify-content-between">
                     <div className="d-flex align-items-center">
-                        <img 
-                            src={userProfileImage} 
-                            alt="Perfil" 
-                            className="rounded-circle object-fit-cover shadow-sm border me-3"
-                            style={{ width: "65px", height: "65px" }}
-                        />
+                        {hasProfileImage ? (
+                            <img 
+                                src={userProfileImage} 
+                                alt="Perfil" 
+                                className="rounded-circle object-fit-cover shadow-sm border me-3"
+                                style={{ width: "65px", height: "65px" }}
+                            />
+                        ) : (
+                            <div 
+                                className="rounded-circle d-flex align-items-center justify-content-center text-white fw-bold shadow-sm border me-3 user-select-none"
+                                style={{ 
+                                    width: "65px", 
+                                    height: "65px", 
+                                    backgroundColor: getAvatarColor(),
+                                    fontSize: "1.4rem",
+                                    letterSpacing: "1px"
+                                }}
+                            >
+                                {getUserInitials()}
+                            </div>
+                        )}
                         <div>
                             <h5 className="fw-bold mb-0">{store.user?.name} {store.user?.last_name}</h5>
                             <p className="text-muted mb-0 small">{store.user?.email}</p>
@@ -179,10 +223,11 @@ export const ProfileSettings = () => {
                                         ></div>
 
                                         <button 
+                                            type="button"
                                             className="position-absolute bottom-0 end-0 m-3 btn btn-dark btn-sm rounded-pill px-3 shadow"
                                             onClick={() => setShowCoverMenu(!showCoverMenu)}
                                         >
-                                            <i className="bi bi-camera-fill me-1"></i> Cambiar portada
+                                            <i className="bi bi-camera-fill me-1"></i>
                                         </button>
 
                                         {uploadingCover && (
@@ -194,14 +239,16 @@ export const ProfileSettings = () => {
                                         {showCoverMenu && !uploadingCover && (
                                             <div className="position-absolute bottom-0 end-0 m-3 bg-white border rounded-3 shadow p-2" style={{ zIndex: 30, width: "160px" }}>
                                                 <button 
+                                                    type="button"
                                                     className="btn btn-sm btn-light w-100 text-start mb-1"
                                                     onClick={() => { setFullImageView({ show: true, url: userCoverImage }); setShowCoverMenu(false); }}
                                                 >
                                                     <i className="bi bi-eye me-2"></i> Ver portada
                                                 </button>
                                                 <button 
+                                                    type="button"
                                                     className="btn btn-sm btn-light w-100 text-start"
-                                                    onClick={() => coverInputRef.current.click()}
+                                                    onClick={() => { setShowCoverMenu(false); coverInputRef.current.click(); }}
                                                 >
                                                     <i className="bi bi-upload me-2"></i> Elegir nueva
                                                 </button>
@@ -214,16 +261,33 @@ export const ProfileSettings = () => {
                                         {/* Foto de Perfil */}
                                         <div className="d-flex align-items-end mb-4" style={{ marginTop: "-50px" }}>
                                             <div className="position-relative d-inline-block">
-                                                <img 
-                                                    src={userProfileImage} 
-                                                    alt="Perfil" 
-                                                    className={`rounded-circle object-fit-cover border border-4 border-white shadow bg-white ${uploadingImage ? 'opacity-50' : ''}`}
-                                                    style={{ width: "100px", height: "100px", cursor: "pointer" }}
-                                                    onClick={() => setShowPhotoMenu(!showPhotoMenu)}
-                                                />
+                                                {hasProfileImage ? (
+                                                    <img 
+                                                        src={userProfileImage} 
+                                                        alt="Perfil" 
+                                                        className={`rounded-circle object-fit-cover border border-4 border-white shadow bg-white ${uploadingImage ? 'opacity-50' : ''}`}
+                                                        style={{ width: "100px", height: "100px", cursor: "pointer" }}
+                                                        onClick={() => setShowPhotoMenu(!showPhotoMenu)}
+                                                    />
+                                                ) : (
+                                                    <div 
+                                                        className={`rounded-circle d-flex align-items-center justify-content-center text-white fw-bold border border-4 border-white shadow user-select-none ${uploadingImage ? 'opacity-50' : ''}`}
+                                                        style={{ 
+                                                            width: "100px", 
+                                                            height: "100px", 
+                                                            backgroundColor: getAvatarColor(),
+                                                            fontSize: "2.2rem",
+                                                            letterSpacing: "1px",
+                                                            cursor: "pointer"
+                                                        }}
+                                                        onClick={() => setShowPhotoMenu(!showPhotoMenu)}
+                                                    >
+                                                        {getUserInitials()}
+                                                    </div>
+                                                )}
                                                 <div 
-                                                    className="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle p-1 shadow cursor-pointer"
-                                                    style={{ transform: "translate(-10%, -10%)" }}
+                                                    className="position-absolute bottom-0 end-0 bg-primary text-white rounded-circle p-1 shadow"
+                                                    style={{ transform: "translate(-10%, -10%)", cursor: "pointer" }}
                                                     onClick={() => setShowPhotoMenu(!showPhotoMenu)}
                                                 >
                                                     <i className="bi bi-camera-fill small"></i>
@@ -237,15 +301,19 @@ export const ProfileSettings = () => {
 
                                                 {showPhotoMenu && !uploadingImage && (
                                                     <div className="position-absolute top-100 start-0 mt-2 bg-white border rounded-3 shadow p-2" style={{ zIndex: 30, width: "160px" }}>
+                                                        {hasProfileImage && (
+                                                            <button 
+                                                                type="button"
+                                                                className="btn btn-sm btn-light w-100 text-start mb-1"
+                                                                onClick={() => { setFullImageView({ show: true, url: userProfileImage }); setShowPhotoMenu(false); }}
+                                                            >
+                                                                <i className="bi bi-eye me-2"></i> Ver foto
+                                                            </button>
+                                                        )}
                                                         <button 
-                                                            className="btn btn-sm btn-light w-100 text-start mb-1"
-                                                            onClick={() => { setFullImageView({ show: true, url: userProfileImage }); setShowPhotoMenu(false); }}
-                                                        >
-                                                            <i className="bi bi-eye me-2"></i> Ver foto
-                                                        </button>
-                                                        <button 
+                                                            type="button"
                                                             className="btn btn-sm btn-light w-100 text-start"
-                                                            onClick={() => profileInputRef.current.click()}
+                                                            onClick={() => { setShowPhotoMenu(false); profileInputRef.current.click(); }}
                                                         >
                                                             <i className="bi bi-upload me-2"></i> Elegir nueva
                                                         </button>
