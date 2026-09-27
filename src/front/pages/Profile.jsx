@@ -240,7 +240,7 @@ export const Profile = () => {
                                         <button onClick={handleOpenAgenda} className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
                                             <i className="bi bi-calendar-check me-2"></i>Agenda
                                         </button>
-                                        <Link to="/chats" className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">
+                                        <Link to="/chat" className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">
                                             <i className="bi bi-chat-left-text me-2"></i>Chats
                                         </Link>
                                     </div>

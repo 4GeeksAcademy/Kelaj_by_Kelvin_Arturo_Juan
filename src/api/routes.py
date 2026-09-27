@@ -6,11 +6,12 @@ import cloudinary.uploader
 from flask import Flask, request, jsonify, url_for, Blueprint
 from flask_socketio import SocketIO, emit, join_room
 from sqlalchemy import func
-from api.models import db, User, UserRole, Media, Service, Transaction, Appointment, Message, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review
+from api.models import db, User, UserRole, Media, Service, Transaction, Appointment, Message, Category, Subcategory, ProviderProfile, Availability, ProviderPortfolio, PaymentMethod, Review, Notification
 from api.utils import generate_sitemap, APIException
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 import stripe
+import json
 import os
 from datetime import datetime, timedelta
 
@@ -239,6 +240,17 @@ def delete_user(user_id):
         print(f"Error borrando usuario: {str(e)}")
         return jsonify({"error": "Error interno al eliminar la cuenta"}), 500
 
+# ============================
+# OBTENER LISTA DE SEGUIDOS DE UN USUARIO
+# ============================
+@api.route('/users/<int:user_id>/following', methods=['GET'])
+def get_user_following(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    return jsonify([u.serialize_basic() for u in user.following]), 200
+
 
 @api.route('/login', methods=['POST'])
 def login():
@@ -358,11 +370,12 @@ def get_service_availability(service_id):
 # ============================
 # CREAR CITA (CON PROTECCIÓN DE CONDICIÓN DE CARRERA)
 # ============================
-
-
 @api.route('/appointments', methods=['POST'])
 @jwt_required()
 def create_appointment():
+    import json
+    from datetime import datetime
+
     current_user_id = int(get_jwt_identity())
     data = request.get_json()
 
@@ -387,9 +400,6 @@ def create_appointment():
     # Comprobar que el servicio está visible
     if not service.visible:
         return jsonify({"error": "Este servicio no está disponible"}), 400
-
-    # Convertir la fecha recibida
-    from datetime import datetime
 
     try:
         appointment_date = datetime.fromisoformat(
@@ -423,6 +433,32 @@ def create_appointment():
 
     try:
         db.session.add(appointment)
+        db.session.flush()  # Obtenemos el ID de la cita antes del commit
+
+        # Crear notificación para el proveedor
+        client_user = User.query.get(current_user_id)
+        provider_user_id = service.provider.user_id if service.provider else None
+
+        if provider_user_id and client_user:
+            notif = Notification(
+                user_id=provider_user_id,
+                actor_id=current_user_id,
+                type="appointment_requested",
+                message=f"{client_user.name} solicitó una cita para {service.title}.",
+                data_json=json.dumps({
+                    "appointment_id": appointment.id,
+                    "service_id": service.id,
+                    "service_title": service.title,
+                    "price": float(service.price),
+                    "client_id": current_user_id,
+                    "client_name": f"{client_user.name} {client_user.last_name or ''}".strip(),
+                    "client_phone": client_user.phone,
+                    "date_time": appointment.date_time.isoformat(),
+                    "status": appointment.status
+                })
+            )
+            db.session.add(notif)
+
         db.session.commit()
 
         return jsonify({
@@ -438,9 +474,7 @@ def create_appointment():
 
     except Exception as e:
         db.session.rollback()
-
         print(f"Error creando cita: {str(e)}")
-
         return jsonify({
             "error": "Error creando la cita"
         }), 500
@@ -777,6 +811,7 @@ def create_charge_with_saved_method():
         print(e)
         return jsonify({"error": "Error procesando el pago"}), 500
 
+
 # PANEL PROFESIONAL: ROUTES
 
 
@@ -888,9 +923,12 @@ def get_user_profile(user_id):
 # para seguir y ser seguido:
 
 
+# para seguir y ser seguido:
 @api.route('/users/<int:user_id>/follow', methods=['POST', 'DELETE'])
 @jwt_required()
 def toggle_follow(user_id):
+    import json
+
     current_user_id = get_jwt_identity()
 
     if int(current_user_id) == user_id:
@@ -905,6 +943,19 @@ def toggle_follow(user_id):
     if request.method == 'POST':
         if target_user not in current_user.following:
             current_user.following.append(target_user)
+
+            # Crear notificación de nuevo seguidor
+            notif = Notification(
+                user_id=target_user.id,
+                actor_id=current_user.id,
+                type="new_follower",
+                message=f"{current_user.name} ha comenzado a seguirte.",
+                data_json=json.dumps({
+                    "follower_id": current_user.id,
+                    "follower_name": f"{current_user.name} {current_user.last_name or ''}".strip()
+                })
+            )
+            db.session.add(notif)
             db.session.commit()
             return jsonify({"message": f"Ahora sigues a {target_user.name}"}), 200
         return jsonify({"message": "Ya sigues a este usuario"}), 400
@@ -916,13 +967,15 @@ def toggle_follow(user_id):
             return jsonify({"message": f"Dejaste de seguir a {target_user.name}"}), 200
         return jsonify({"message": "No sigues a este usuario"}), 400
 
+
 # sistema de reviews:
-
-
+# sistema de reviews:
 @api.route('/appointments/<int:appointment_id>/reviews', methods=['POST'])
 @jwt_required()
 def create_review(appointment_id):
-    current_user_id = get_jwt_identity()
+    import json
+
+    current_user_id = int(get_jwt_identity())
     body = request.get_json()
 
     rating = body.get("rating")
@@ -936,22 +989,63 @@ def create_review(appointment_id):
     if not appointment:
         return jsonify({"error": "Cita no encontrada"}), 404
 
-    if int(appointment.client_id) != int(current_user_id):
+    if int(appointment.client_id) != current_user_id:
         return jsonify({"error": "Solo el cliente de la cita puede dejar una reseña"}), 403
 
     if appointment.review:
         return jsonify({"error": "Esta cita ya tiene una reseña"}), 400
 
-    new_review = Review(
-        appointment_id=appointment.id,
-        rating=rating,
-        comment=comment
-    )
+    try:
+        new_review = Review(
+            appointment_id=appointment.id,
+            rating=rating,
+            comment=comment
+        )
 
-    db.session.add(new_review)
-    db.session.commit()
+        db.session.add(new_review)
+        db.session.flush()  # Obtenemos el ID y la fecha de creación antes del commit
 
-    return jsonify({"message": "Reseña creada exitosamente", "review": new_review.serialize()}), 201
+        # Crear notificación para el proveedor dueño del servicio
+        client_user = User.query.get(current_user_id)
+        provider_user_id = (
+            appointment.service.provider.user_id
+            if appointment.service and appointment.service.provider
+            else None
+        )
+
+        if provider_user_id and client_user:
+            service_title = appointment.service.title if appointment.service else "tu servicio"
+            notif = Notification(
+                user_id=provider_user_id,
+                actor_id=current_user_id,
+                type="new_review",
+                message=f"{client_user.name} dejó una reseña de {rating} ★ en {service_title}.",
+                data_json=json.dumps({
+                    "review_id": new_review.id,
+                    "appointment_id": appointment.id,
+                    "service_id": appointment.service_id,
+                    "service_title": service_title,
+                    "rating": rating,
+                    "comment": comment or "Sin comentario adicional.",
+                    "client_id": current_user_id,
+                    "client_name": f"{client_user.name} {client_user.last_name or ''}".strip(),
+                    "provider_user_id": provider_user_id,
+                    "created_at": new_review.created_at.isoformat() if new_review.created_at else None
+                })
+            )
+            db.session.add(notif)
+
+        db.session.commit()
+
+        return jsonify({
+            "message": "Reseña creada exitosamente",
+            "review": new_review.serialize()
+        }), 201
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creando reseña: {str(e)}")
+        return jsonify({"error": "Error interno al guardar la reseña"}), 500
 
 # busquedas
 
@@ -1002,16 +1096,18 @@ def search_providers():
     return jsonify(response), 200
 
 # ============================
-# SUBIR GALERÍA (CLOUDINARY)
-# ============================
-# ============================
 # SUBIR PUBLICACIÓN A GALERÍA (CLOUDINARY)
 # ============================
 
 
+# ============================
+# SUBIR PUBLICACIÓN A GALERÍA (CLOUDINARY)
+# ============================
 @api.route('/provider/gallery', methods=['POST'])
 @jwt_required()
 def upload_gallery_media():
+    import json
+
     user_id = int(get_jwt_identity())
 
     provider = ProviderProfile.query.filter_by(user_id=user_id).first()
@@ -1027,7 +1123,6 @@ def upload_gallery_media():
         return jsonify({"error": "No se seleccionaron imágenes"}), 400
 
     try:
-        import json
         uploaded_urls = []
 
         # Subimos foto por foto a Cloudinary
@@ -1045,6 +1140,24 @@ def upload_gallery_media():
         )
 
         db.session.add(new_post)
+        db.session.flush()  # Necesario para que new_post.serialize() tenga el id y fecha
+
+        # Notificar a todos los seguidores del proveedor
+        if provider.user and provider.user.followers:
+            for follower in provider.user.followers:
+                notif = Notification(
+                    user_id=follower.id,
+                    actor_id=user_id,
+                    type="new_media",
+                    message=f"{provider.user.name} añadió fotos a su galería: {new_post.title}",
+                    data_json=json.dumps({
+                        **new_post.serialize(),
+                        "provider_user_id": user_id,
+                        "provider_name": f"{provider.user.name} {provider.user.last_name or ''}".strip()
+                    })
+                )
+                db.session.add(notif)
+
         db.session.commit()
 
         return jsonify({"message": "Publicación subida con éxito"}), 201
@@ -1158,6 +1271,8 @@ def update_provider_schedule():
 @api.route('/provider/services', methods=['POST'])
 @jwt_required()
 def add_provider_service():
+    import json
+
     user_id = int(get_jwt_identity())
     
     provider = ProviderProfile.query.filter_by(user_id=user_id).first()
@@ -1182,6 +1297,24 @@ def add_provider_service():
         )
         
         db.session.add(new_service)
+        db.session.flush()  # Obtenemos el ID del servicio antes del commit
+
+        # Notificar a todos los seguidores del proveedor
+        if provider.user and provider.user.followers:
+            for follower in provider.user.followers:
+                notif = Notification(
+                    user_id=follower.id,
+                    actor_id=user_id,
+                    type="new_service",
+                    message=f"{provider.user.name} publicó un nuevo servicio: {new_service.title}",
+                    data_json=json.dumps({
+                        **new_service.serialize(),
+                        "provider_user_id": user_id,
+                        "provider_name": f"{provider.user.name} {provider.user.last_name or ''}".strip()
+                    })
+                )
+                db.session.add(notif)
+
         db.session.commit()
         
         return jsonify({"message": "Servicio creado exitosamente"}), 201
@@ -1497,45 +1630,7 @@ def get_messages(user_id):
     return jsonify([msg.serialize() for msg in messages]), 200
 
 
-# ============================
-# ENVIAR / GUARDAR MENSAJE
-# ============================
-@api.route('/messages', methods=['POST'])
-@jwt_required()
-def send_message():
-    current_user_id = int(get_jwt_identity())
-    data = request.get_json()
 
-    if not data:
-        return jsonify({"error": "Debes enviar datos en formato JSON"}), 400
-
-    receiver_id = data.get("receiver_id")
-    content = (data.get("content") or "").strip()
-
-    if not receiver_id or not content:
-        return jsonify({"error": "receiver_id y content son obligatorios"}), 400
-
-    if int(receiver_id) == current_user_id:
-        return jsonify({"error": "No puedes enviarte mensajes a ti mismo"}), 400
-
-    receiver = User.query.get(receiver_id)
-    if not receiver:
-        return jsonify({"error": "Usuario destinatario no encontrado"}), 404
-
-    try:
-        new_message = Message(
-            sender_id=current_user_id,
-            receiver_id=int(receiver_id),
-            content=content
-        )
-        db.session.add(new_message)
-        db.session.commit()
-
-        return jsonify(new_message.serialize()), 201
-    except Exception as e:
-        db.session.rollback()
-        print(f"Error guardando mensaje: {str(e)}")
-        return jsonify({"error": "Error interno al enviar el mensaje"}), 500
 
         # ============================
 # OBTENER CITAS DEL CLIENTE
@@ -1611,30 +1706,119 @@ def update_appointment(appointment_id):
 
 
 # ============================
-# ELIMINAR / CANCELAR CITA
+# ENVIAR / GUARDAR MENSAJE
 # ============================
-@api.route('/appointments/<int:appointment_id>', methods=['DELETE'])
+@api.route('/messages', methods=['POST'])
 @jwt_required()
-def delete_appointment(appointment_id):
+def send_message():
+    import json
+
     current_user_id = int(get_jwt_identity())
-    appointment = Appointment.query.get(appointment_id)
+    data = request.get_json()
 
-    if not appointment:
-        return jsonify({"error": "Cita no encontrada"}), 404
+    if not data:
+        return jsonify({"error": "Debes enviar datos en formato JSON"}), 400
 
-    if int(appointment.client_id) != current_user_id:
-        return jsonify({"error": "No autorizado para eliminar esta cita"}), 403
+    receiver_id = data.get("receiver_id")
+    content = (data.get("content") or "").strip()
+
+    if not receiver_id or not content:
+        return jsonify({"error": "receiver_id y content son obligatorios"}), 400
+
+    if int(receiver_id) == current_user_id:
+        return jsonify({"error": "No puedes enviarte mensajes a ti mismo"}), 400
+
+    receiver = User.query.get(receiver_id)
+    if not receiver:
+        return jsonify({"error": "Usuario destinatario no encontrado"}), 404
 
     try:
-        if appointment.review:
-            Media.query.filter_by(review_id=appointment.review.id).delete()
-            db.session.delete(appointment.review)
-        if appointment.transaction:
-            db.session.delete(appointment.transaction)
+        new_message = Message(
+            sender_id=current_user_id,
+            receiver_id=int(receiver_id),
+            content=content
+        )
+        db.session.add(new_message)
 
-        db.session.delete(appointment)
+        # Crear notificación de mensaje recibido
+        sender = User.query.get(current_user_id)
+        if sender:
+            notif = Notification(
+                user_id=int(receiver_id),
+                actor_id=current_user_id,
+                type="new_message",
+                message=f"Nuevo mensaje de {sender.name}: \"{content[:40]}{'...' if len(content) > 40 else ''}\"",
+                data_json=json.dumps({
+                    "sender_id": current_user_id,
+                    "sender_name": f"{sender.name} {sender.last_name or ''}".strip(),
+                    "content": content
+                })
+            )
+            db.session.add(notif)
+
         db.session.commit()
-        return jsonify({"message": "Cita eliminada correctamente"}), 200
+
+        return jsonify(new_message.serialize()), 201
     except Exception as e:
         db.session.rollback()
-        return jsonify({"error": f"Error al eliminar la cita: {str(e)}"}), 500
+        print(f"Error guardando mensaje: {str(e)}")
+        return jsonify({"error": "Error interno al enviar el mensaje"}), 500
+
+
+    # ============================
+# OBTENER NOTIFICACIONES DEL USUARIO
+# ============================
+@api.route('/notifications', methods=['GET'])
+@jwt_required()
+def get_notifications():
+    current_user_id = int(get_jwt_identity())
+    notifications = Notification.query.filter_by(user_id=current_user_id)\
+        .order_by(Notification.created_at.desc())\
+        .limit(30).all()
+    return jsonify([n.serialize() for n in notifications]), 200
+
+
+# ============================
+# MARCAR UNA NOTIFICACIÓN COMO LEÍDA
+# ============================
+@api.route('/notifications/<int:notification_id>/read', methods=['PUT'])
+@jwt_required()
+def mark_notification_read(notification_id):
+    current_user_id = int(get_jwt_identity())
+    notif = Notification.query.filter_by(id=notification_id, user_id=current_user_id).first()
+    if not notif:
+        return jsonify({"error": "Notificación no encontrada"}), 404
+
+    notif.is_read = True
+    db.session.commit()
+    return jsonify(notif.serialize()), 200
+
+
+# ============================
+# MARCAR TODAS COMO LEÍDAS
+# ============================
+@api.route('/notifications/read-all', methods=['PUT'])
+@jwt_required()
+def mark_all_notifications_read():
+    current_user_id = int(get_jwt_identity())
+    Notification.query.filter_by(user_id=current_user_id, is_read=False).update({"is_read": True})
+    db.session.commit()
+    return jsonify({"message": "Todas las notificaciones marcadas como leídas"}), 200
+
+# ============================
+# OBTENER CITAS DEL PROVEEDOR
+# ============================
+@api.route('/provider/appointments', methods=['GET'])
+@jwt_required()
+def get_provider_appointments():
+    current_user_id = int(get_jwt_identity())
+    provider = ProviderProfile.query.filter_by(user_id=current_user_id).first()
+
+    if not provider:
+        return jsonify({"error": "No eres proveedor"}), 403
+
+    appointments = Appointment.query.join(Service).filter(
+        Service.provider_id == provider.id
+    ).order_by(Appointment.date_time.asc()).all()
+
+    return jsonify([app.serialize() for app in appointments]), 200
