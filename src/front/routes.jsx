@@ -18,6 +18,7 @@ import { BecomeProvider } from "./pages/BecomeProvider";
 import ProfessionalDashboard from "./pages/ProfessionalDashboard";
 import { Settings } from "./pages/Settings";
 import { ProvidersCatalog } from "./pages/ProvidersCatalog";
+import ClientDashboard from "./pages/ClientDashboard";
 import { Chat } from "./pages/Chat";
 
 const RequireAuth = () => {
@@ -49,6 +50,7 @@ export const router = createBrowserRouter(
         <Route path="/chat/:userId" element={<Chat />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/professional-panel" element={<ProfessionalDashboard />} />
+        <Route path="/client-panel" element={<ClientDashboard />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
 

@@ -81,7 +81,8 @@ class User(db.Model):
             "id": self.id,
             "name": self.name,
             "last_name": self.last_name,
-            "profile_image": self.profile_image
+            "profile_image": self.profile_image,
+            "city": self.city
         }
 
 
@@ -277,6 +278,7 @@ class Service(db.Model):
         return {
             "id": self.id,
             "title": self.title,
+            "subcategory_id": self.subcategory_id,
             "price": float(self.price),
             "price_type": self.price_type, # <-- Añadido
             "estimated_duration": self.estimated_duration,

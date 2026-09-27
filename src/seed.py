@@ -6,7 +6,6 @@ from werkzeug.security import generate_password_hash
 from app import app
 from api.models import db, User, ProviderProfile, Category, Subcategory, Service, Availability, Appointment, Review
 
-# 1. CATÁLOGO AMPLIADO DE CATEGORÍAS Y SUBCATEGORÍAS
 CATEGORIAS = {
     "Limpieza": {
         "desc": "Servicios de limpieza para hogares y empresas.",
@@ -47,7 +46,6 @@ CATEGORIAS = {
     }
 }
 
-# Lista completa de provincias de España sincronizada con el frontend
 CIUDADES = [
     "Álava", "Albacete", "Alicante", "Almería", "Asturias", "Ávila", "Badajoz", "Barcelona",
     "Burgos", "Cáceres", "Cádiz", "Cantabria", "Castellón", "Ciudad Real", "Córdoba", "Cuenca",
@@ -203,7 +201,6 @@ def generate_seed():
             ("Diego", "Pena", "Fotografía", "Sesiones familiares, maternidad y mascotas al aire libre con luz natural.", "Book fotográfico familiar o mascotas", 55.00)
         ]
 
-        # Iterar sobre las plantillas y crear los registros
         for i, (nombre, apellido, sub_cat, bio, titulo_servicio, precio) in enumerate(perfiles):
             email = f"{nombre.lower()}.{apellido.lower()}@kelaj.com"
             ciudad = random.choice(CIUDADES)
