@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCategories } from '../services/services';
 import { getUserLocation } from '../services/APIservices';
-import { searchProviders } from '../services/userServices';
+import { searchProviders, getFollowing, toggleFollow } from '../services/userServices';
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import '../styles/ProvidersCatalog.css';
 
@@ -39,6 +39,7 @@ export const ProvidersCatalog = () => {
     const [categoriesData, setCategoriesData] = useState([]);
     const [allProviders, setAllProviders] = useState([]);
     const [filteredProviders, setFilteredProviders] = useState([]);
+    const [followingIds, setFollowingIds] = useState([]);
 
     const [loading, setLoading] = useState(true);
     const [activeFilter, setActiveFilter] = useState({ type: "all", value: "" });
@@ -65,6 +66,54 @@ export const ProvidersCatalog = () => {
         setOpenDropdown(null);
         if (location.search) {
             navigate("/catalog", { replace: true });
+        }
+    };
+
+    // Cargar la lista de usuarios a los que sigue el usuario logueado
+    useEffect(() => {
+        const fetchUserFollowing = async () => {
+            if (!store.user?.id) {
+                setFollowingIds([]);
+                return;
+            }
+            try {
+                const list = await getFollowing(store.user.id);
+                if (Array.isArray(list)) {
+                    const ids = list.map(item => (typeof item === "object" ? item.id : Number(item)));
+                    setFollowingIds(ids);
+                }
+            } catch (error) {
+                console.error("Error al cargar seguidos:", error);
+            }
+        };
+        fetchUserFollowing();
+    }, [store.user]);
+
+    // Seguir / Dejar de seguir desde el corazón de la tarjeta
+    const handleHeartClick = async (providerId) => {
+        if (!store.user) {
+            navigate("/login");
+            return;
+        }
+        if (store.user.id === providerId) return;
+
+        const isCurrentlyFollowing = followingIds.includes(providerId);
+
+        // Actualización visual inmediata
+        setFollowingIds(prev =>
+            isCurrentlyFollowing
+                ? prev.filter(id => id !== providerId)
+                : [...prev, providerId]
+        );
+
+        const res = await toggleFollow(providerId, isCurrentlyFollowing);
+        // Si hubo algún fallo en el servidor, revertimos el cambio visual
+        if (!res) {
+            setFollowingIds(prev =>
+                isCurrentlyFollowing
+                    ? [...prev, providerId]
+                    : prev.filter(id => id !== providerId)
+            );
         }
     };
 
@@ -264,6 +313,7 @@ export const ProvidersCatalog = () => {
 
                             const mainProfession = services[0]?.title || profile?.bio || "Profesional independiente";
                             const hasImage = provider.profile_image && !provider.profile_image.includes("ui-avatars");
+                            const isFollowing = followingIds.includes(provider.id);
 
                             return (
                                 <div key={provider.id} className="card bg-white border-0 shadow-sm rounded-4 provider-list-card position-relative overflow-hidden">
@@ -272,7 +322,12 @@ export const ProvidersCatalog = () => {
 
                                             {/* Foto / Iniciales */}
                                             <div className="col-auto mb-3 mb-sm-0 position-relative">
-                                                <i className="bi bi-heart position-absolute bg-white rounded-circle px-1 shadow-sm text-muted" style={{ top: "-5px", right: "-5px", cursor: "pointer", zIndex: 2 }}></i>
+                                                <i
+                                                    onClick={() => handleHeartClick(provider.id)}
+                                                    title={isFollowing ? "Siguiendo (clic para dejar de seguir)" : "Seguir proveedor"}
+                                                    className={`bi ${isFollowing ? "bi-heart-fill text-danger" : "bi-heart text-muted"} position-absolute bg-white rounded-circle px-1 shadow-sm`}
+                                                    style={{ top: "-5px", right: "-5px", cursor: "pointer", zIndex: 2 }}
+                                                ></i>
 
                                                 {hasImage ? (
                                                     <img src={provider.profile_image} alt={provider.name} className="avatar-square shadow-sm border" />
@@ -317,7 +372,7 @@ export const ProvidersCatalog = () => {
                                         </div>
                                     </div>
                                 </div>
-                            )
+                            );
                         })}
                     </div>
                 )}

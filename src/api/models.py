@@ -498,3 +498,38 @@ class ProviderPortfolio(db.Model):
             "urls": urls_list,
             "date": self.created_at.strftime("%d/%m/%Y") if self.created_at else "Fecha desconocida"
         }
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    actor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Tipos: 'new_message', 'new_follower', 'appointment_requested', 'appointment_cancelled', 'new_service', 'new_media'
+    message: Mapped[str] = mapped_column(String(255), nullable=False)
+    data_json: Mapped[str] = mapped_column(Text, nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    actor: Mapped["User"] = relationship(foreign_keys=[actor_id])
+
+    def serialize(self):
+        import json
+        try:
+            parsed_data = json.loads(self.data_json) if self.data_json else {}
+        except Exception:
+            parsed_data = {}
+
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "actor_id": self.actor_id,
+            "actor_info": self.actor.serialize_basic() if self.actor else None,
+            "type": self.type,
+            "message": self.message,
+            "data": parsed_data,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None
+        }

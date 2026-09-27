@@ -429,3 +429,50 @@ export const sendMessage = async (receiverId, content) => {
     return null;
   }
 };
+
+// ==========================================
+// SERVICIOS DE NOTIFICACIONES
+// ==========================================
+export const getNotifications = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) return [];
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notifications`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Error obteniendo notificaciones:", error);
+    return [];
+  }
+};
+
+export const markNotificationAsRead = async (notificationId) => {
+  const token = localStorage.getItem("token");
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notifications/${notificationId}/read`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error("Error marcando notificación como leída:", error);
+    return null;
+  }
+};
+
+export const markAllNotificationsAsRead = async () => {
+  const token = localStorage.getItem("token");
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notifications/read-all`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Error marcando todas las notificaciones como leídas:", error);
+    return false;
+  }
+};

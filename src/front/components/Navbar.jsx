@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
+import { NotificationDropdown } from "./UserComponents/NotificationDropdown";
 import "../styles/Home.css";
 
 export const Navbar = () => {
@@ -54,9 +55,25 @@ export const Navbar = () => {
 
   return (
     <nav className="navbar bg-opacity-50 navbar-expand-lg navbar-light bg-white py-3 border-bottom shadow-sm">
-      <div className="container align-items-center">
+      <style>{`
+        .catalog-search-form {
+          width: 100%;
+          order: 3;
+          margin-top: 0.75rem;
+        }
+        @media (min-width: 768px) {
+          .catalog-search-form {
+            width: auto;
+            max-width: 550px;
+            order: 2;
+            margin-top: 0;
+          }
+        }
+      `}</style>
 
-        <Link className="navbar-brand fw-bold text-dark d-flex align-items-center gap-2 me-md-4" to="/">
+      <div className="container d-flex flex-wrap align-items-center">
+
+        <Link className="navbar-brand fw-bold text-dark d-flex align-items-center gap-2 me-md-4 order-1" to="/">
           <div className="bg-primary text-white rounded d-flex align-items-center justify-content-center"
             style={{ width: "35px", height: "35px", fontSize: "14px" }}>
             KL
@@ -65,15 +82,15 @@ export const Navbar = () => {
         </Link>
 
         {isCatalogView && (
-            <form className="d-none d-md-flex flex-grow-1 mx-4" onSubmit={handleSearchSubmit} style={{ maxWidth: "550px" }}>
-                <div className="input-group shadow-sm rounded-pill border bg-white align-items-center">
+            <form className="d-flex flex-grow-1 mx-md-4 catalog-search-form" onSubmit={handleSearchSubmit}>
+                <div className="input-group shadow-sm rounded-pill border bg-white align-items-center w-100">
                     
                     <button
-                        className="btn btn-white border-0 rounded-start-pill dropdown-toggle fw-semibold text-dark ps-4 pe-2 shadow-none"
+                        className="btn btn-white border-0 rounded-start-pill dropdown-toggle fw-semibold text-dark ps-3 ps-sm-4 pe-2 shadow-none"
                         type="button"
                         data-bs-toggle="dropdown"
                         aria-expanded="false"
-                        style={{ backgroundColor: "transparent" }}
+                        style={{ backgroundColor: "transparent", fontSize: "0.9rem" }}
                     >
                         {searchType === "profession"
                             ? "Profesión"
@@ -104,7 +121,8 @@ export const Navbar = () => {
 
                     <input 
                         type="text" 
-                        className="form-control border-0 shadow-none bg-transparent ps-3" 
+                        className="form-control border-0 shadow-none bg-transparent ps-2 ps-sm-3" 
+                        style={{ minWidth: 0 }}
                         placeholder={
                             searchType === "profession"
                                 ? "Ej. Abogado, Fontanero..."
@@ -130,73 +148,95 @@ export const Navbar = () => {
                         </button>
                     )}
 
-                    <button type="submit" className="btn border-0 rounded-end-pill pe-4 ps-2 text-primary shadow-none" style={{ backgroundColor: "transparent" }}>
+                    <button type="submit" className="btn border-0 rounded-end-pill pe-3 pe-sm-4 ps-2 text-primary shadow-none" style={{ backgroundColor: "transparent" }}>
                         <i className="bi bi-search fw-bold"></i>
                     </button>
                 </div>
             </form>
         )}
 
-        <div className="d-flex align-items-center gap-3 ms-auto">
+        <div className="d-flex align-items-center gap-2 gap-sm-3 ms-auto order-2 order-md-3">
+          {/* Botón redondo con lupa que redirige a /catalog */}
+          <Link
+            to="/catalog"
+            className="btn btn-light border rounded-circle p-0 flex-shrink-0 d-flex align-items-center justify-content-center shadow-none"
+            style={{
+              width: "40px",
+              height: "40px",
+              minWidth: "40px",
+              minHeight: "40px",
+              aspectRatio: "1 / 1",
+            }}
+            title="Ver todos los servicios"
+          >
+            <i className="bi bi-search fs-5 text-dark d-flex"></i>
+          </Link>
+
           {!store.user ? (
             <Link to="/login" className="btn btn-light border rounded-pill px-4 fw-semibold d-flex align-items-center gap-2">
               <i className="bi bi-person"></i> Acceder
             </Link>
           ) : (
-            <div className="dropdown">
-              <button
-                className="btn btn-light border rounded-pill px-3 fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
-                type="button"
-                data-bs-toggle="dropdown"
-                aria-expanded="false"
-              >
-                <img
-                  src={store.user.profile_image || `https://ui-avatars.com/api/?name=${store.user.name}&background=4f46e5&color=fff`}
-                  alt={store.user.name}
-                  className="rounded-circle"
-                  style={{ width: "26px", height: "26px", objectFit: "cover" }}
-                />
-                <span className="d-none d-sm-inline">{store.user.name}</span>
-              </button>
+            <>
+              {/* Icono de notificaciones junto al menú de usuario */}
+              <NotificationDropdown />
 
-              <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
-                <li>
-                  <Link className="dropdown-item" to={`/profile/${store.user.id}`}>
-                    <i className="bi bi-person me-2"></i> Mi Perfil
-                  </Link>
-                </li>
-                <li>
-                  <button className="dropdown-item" onClick={() => navigate("/client-panel")}>
-                    <i className="bi bi-people me-2"></i> Panel cliente
-                  </button>
-                </li>
-                {store.user.is_provider && (
+              {/* Dropdown de usuario */}
+              <div className="dropdown">
+                <button
+                  className="btn btn-light border rounded-pill px-3 fw-semibold d-flex align-items-center gap-2 dropdown-toggle"
+                  type="button"
+                  data-bs-toggle="dropdown"
+                  aria-expanded="false"
+                >
+                  <img
+                    src={store.user.profile_image || `https://ui-avatars.com/api/?name=${store.user.name}&background=4f46e5&color=fff`}
+                    alt={store.user.name}
+                    className="rounded-circle"
+                    style={{ width: "26px", height: "26px", objectFit: "cover" }}
+                  />
+                  <span className="d-none d-sm-inline">{store.user.name}</span>
+                </button>
+
+                <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2">
                   <li>
-                    <button className="dropdown-item" onClick={() => navigate("/professional-panel")}>
-                      <i className="bi bi-briefcase me-2"></i> Panel profesional
-                    </button>
-                  </li>
-                )}
-                {!store.user.is_provider && (
-                  <li>
-                    <Link className="dropdown-item text-primary fw-semibold" to={`/become-provider`}>
-                      <i className="bi bi-rocket-takeoff me-2"></i> Quiero ofrecer mis servicios
+                    <Link className="dropdown-item" to={`/profile/${store.user.id}`}>
+                      <i className="bi bi-person me-2"></i> Mi Perfil
                     </Link>
                   </li>
-                )}
-                <li>
-                  <Link className="dropdown-item" to="/settings">
-                    <i className="bi bi-gear me-2"></i> Configuración
-                  </Link>
-                </li>
-                <li><hr className="dropdown-divider" /></li>
-                <li>
-                  <button className="dropdown-item text-danger" onClick={handleLogout}>
-                    <i className="bi bi-box-arrow-right me-2"></i> Cerrar sesión
-                  </button>
-                </li>
-              </ul>
-            </div>
+                  <li>
+                    <button className="dropdown-item" onClick={() => navigate("/client-panel")}>
+                      <i className="bi bi-people me-2"></i> Panel cliente
+                    </button>
+                  </li>
+                  {store.user.is_provider && (
+                    <li>
+                      <button className="dropdown-item" onClick={() => navigate("/professional-panel")}>
+                        <i className="bi bi-briefcase me-2"></i> Panel profesional
+                      </button>
+                    </li>
+                  )}
+                  {!store.user.is_provider && (
+                    <li>
+                      <Link className="dropdown-item text-primary fw-semibold" to={`/become-provider`}>
+                        <i className="bi bi-rocket-takeoff me-2"></i> Quiero ofrecer mis servicios
+                      </Link>
+                    </li>
+                  )}
+                  <li>
+                    <Link className="dropdown-item" to="/settings">
+                      <i className="bi bi-gear me-2"></i> Configuración
+                    </Link>
+                  </li>
+                  <li><hr className="dropdown-divider" /></li>
+                  <li>
+                    <button className="dropdown-item text-danger" onClick={handleLogout}>
+                      <i className="bi bi-box-arrow-right me-2"></i> Cerrar sesión
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </>
           )}
         </div>
       </div>
