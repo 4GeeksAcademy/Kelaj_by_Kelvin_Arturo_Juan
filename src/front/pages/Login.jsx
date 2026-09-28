@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import "../styles/Login.css";
+import { loginUser } from "../services/userServices";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
@@ -100,72 +101,58 @@ export const Login = () => {
   };
 
   return (
-    <div className="row login-page d-flex justify-content-center align-items-center p-5">
-      <div className="login-card col-3">
-        {error && <div className="alert alert-danger py-2 small">{error}</div>}
+    <div className="container my-5" style={{ maxWidth: "800px" }}>
+      <form onSubmit={handleSubmit} className="bg-white bg-opacity-50 p-4 p-md-5 rounded-4 shadow-sm border">
+        <h3 className="fw-bold text-center mb-4">
+          Iniciar sesión
+        </h3>
 
-        <form onSubmit={handleSubmit} className="login-form">
-          <h1 className="text-center">Iniciar sesión</h1>
+        {error && <div className="alert alert-danger rounded-3">{error}</div>}
 
-          <div className="mb-3">
-            <label htmlFor="email" className="form-label fw-semibold small">
-              E-mail
-            </label>
-            <input
-              type="email"
-              id="email"
-              className="form-control login-input"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
+        <div className="mb-3">
+          <label className="form-label fw-semibold small">E-mail</label>
+          <input
+            type="email" className="form-control rounded-pill px-3 py-2" name="email"
+            value={formData.email} onChange={handleChange} required
+          />
+        </div>
 
-          <div className="mb-4">
-            <label htmlFor="password" className="form-label fw-semibold small">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              id="password"
-              className="form-control login-input"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
+        <div className="mb-4">
+          <label className="form-label fw-semibold small">Contraseña</label>
+          <input
+            type="password" className="form-control rounded-pill px-3 py-2" name="password"
+            value={formData.password} onChange={handleChange} required
+          />
+        </div>
 
-          <button
-            type="submit"
-            className="btn btn-primary w-100 py-2 fw-semibold rounded-pill mb-4"
-            disabled={!formData.email || !formData.password || loading}
-          >
-            {loading ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-2"></span>
-                Ingresando...
-              </>
-            ) : (
-              "Iniciar sesión"
-            )}
-          </button>
-
-          {GOOGLE_CLIENT_ID && (
-            <div className="login-google-wrapper">
-              <div id="google-login-btn"></div>
-            </div>
+        <button
+          type="submit"
+          className="btn btn-primary w-100 py-2 fw-semibold rounded-pill"
+          disabled={!formData.email || !formData.password || loading}
+        >
+          {loading ? (
+            <><span className="spinner-border spinner-border-sm me-2"></span>Ingresando...</>
+          ) : (
+            "Iniciar sesión"
           )}
+        </button>
 
-          <p className="login-register-text">
-            ¿No tienes cuenta? crea una{" "}
-            <Link to="/register" className="text-primary fw-bold text-decoration-none">
-              Aquí
-            </Link>
-          </p>
-        </form>
+        <p className="mt-4 text-center small">
+          ¿No tienes cuenta? <Link to="/register" className="text-primary fw-bold text-decoration-none">Regístrate aquí</Link>
+        </p>
+      </form>
+
+      <div className="d-flex align-items-center my-3">
+        <hr className="flex-grow-1" />
+        <span className="mx-2 text-muted">o</span>
+        <hr className="flex-grow-1" />
       </div>
+
+      {GOOGLE_CLIENT_ID ? (
+        <div className="d-flex justify-content-center">
+          <div id="google-login-btn"></div>
+        </div>
+      ) : null}
     </div>
   );
 };

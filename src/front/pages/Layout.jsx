@@ -1,9 +1,10 @@
 import React from "react";
 import { Outlet } from "react-router-dom";
+import { Link } from "react-router-dom";
 import ScrollToTop from "../components/ScrollToTop";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
-import useGlobalReducer from "../hooks/useGlobalReducer"
+import useGlobalReducer from "../hooks/useGlobalReducer";
 
 export const Layout = () => {
     const { store } = useGlobalReducer()
@@ -12,7 +13,6 @@ export const Layout = () => {
 
     return (
         <ScrollToTop>
-            {/* Contenedor principal con altura mínima del 100% de la pantalla */}
             <div className="d-flex flex-column min-vh-100">
                 <Navbar />
 
