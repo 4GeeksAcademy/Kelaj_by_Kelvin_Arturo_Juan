@@ -7,6 +7,42 @@ import "../index.css"
 export const Home = () => {
     const token = localStorage.getItem("token");
 
+    const testimonials = [
+        {
+            name: "María G.",
+            initials: "MG",
+            text: "Encontré un profesional para reparar una avería en casa en menos de una hora. Súper puntual, limpio y el proceso de reserva fue comodísimo."
+        },
+        {
+            name: "Carlos R.",
+            initials: "CR",
+            text: "Uso Kelaj cada semana para la limpieza de mi piso. Poder comparar precios reales y ver las valoraciones de otros usuarios me da total tranquilidad."
+        },
+        {
+            name: "Laura M.",
+            initials: "LM",
+            text: "Como proveedora de servicios, la plataforma me ha ayudado a conseguir clientes cerca de mi zona y gestionar mi agenda sin complicaciones."
+        }
+    ];
+
+    const features = [
+        {
+            icon: "bi-tag-fill",
+            title: "El mejor precio",
+            description: "Compara tarifas transparentes entre distintos profesionales y elige la opción que mejor se adapte a tu presupuesto."
+        },
+        {
+            icon: "bi-calendar-check-fill",
+            title: "Máxima comodidad",
+            description: "Reserva en pocos clics para el día y la hora que prefieras, gestionando todo desde un mismo lugar."
+        },
+        {
+            icon: "bi-shield-check",
+            title: "Servicio garantizado",
+            description: "Profesionales verificados y valoraciones reales de la comunidad para tu total tranquilidad."
+        }
+    ];
+
     return (
         <div className="container py-4">
             {/* CABECERA PRINCIPAL */}
@@ -147,10 +183,6 @@ export const Home = () => {
                     </div>
                 </div>
             </section>
-
-
-
-            
         </div>
     );
 };

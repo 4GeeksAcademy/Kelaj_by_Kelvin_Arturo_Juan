@@ -148,7 +148,8 @@ class ProviderProfile(db.Model):
                         "comment": cita.review.comment,
                         "date": cita.review.created_at.strftime("%d/%m/%Y") if cita.review.created_at else "",
                         "client_name": cita.client.name if cita.client else "Cliente",
-                        "service_title": servicio.title
+                        "service_title": servicio.title,
+                        "media": [m.serialize() for m in cita.review.media] if cita.review.media else []
                     })
 
         # 2. Consultamos los días de disponibilidad en la base de datos

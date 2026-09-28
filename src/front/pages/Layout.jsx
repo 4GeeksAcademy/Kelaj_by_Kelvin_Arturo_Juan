@@ -3,6 +3,7 @@ import { Outlet } from "react-router-dom";
 import ScrollToTop from "../components/ScrollToTop";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
+import useGlobalReducer from "../hooks/useGlobalReducer"
 
 export const Layout = () => {
     const { store } = useGlobalReducer()

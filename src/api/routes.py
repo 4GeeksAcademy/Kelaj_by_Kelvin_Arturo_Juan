@@ -583,15 +583,29 @@ def add_payment_method():
         return jsonify({"error": "Datos incompletos"}), 400
 
     user = User.query.get(user_id)
-    if not user or not user.stripe_customer_id:
-        return jsonify({"error": "Cliente Stripe no encontrado"}), 400
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
 
-    # Asociar PaymentMethod al Customer en Stripe
-    stripe.PaymentMethod.attach(
-        data["payment_method_id"],
-        customer=user.stripe_customer_id
-    )
+    # 1. CREAR CLIENTE EN STRIPE SI AÚN NO LO TIENE
+    if not user.stripe_customer_id:
+        customer = stripe.Customer.create(
+            email=user.email,
+            name=f"{user.name} {user.last_name or ''}".strip()
+        )
+        user.stripe_customer_id = customer.id
+        db.session.commit()
 
+    # 2. ASOCIAR LA TARJETA AL CLIENTE (Con manejo de errores)
+    try:
+        stripe.PaymentMethod.attach(
+            data["payment_method_id"],
+            customer=user.stripe_customer_id
+        )
+    except stripe.error.StripeError as e:
+        # Si la tarjeta ya estaba vinculada al cliente, ignoramos el error para no romper la app
+        print("Stripe Aviso:", str(e))
+
+    # 3. GUARDAR EN BASE DE DATOS
     method = PaymentMethod(
         user_id=user_id,
         provider=data["provider"],
@@ -905,21 +919,36 @@ def get_user_profile(user_id):
     user_data = user.serialize()
 
     if user.is_provider and user.providerprofile:
-        user_data["providerprofile"] = user.providerprofile.serialize()
+        serialized_profile = user.providerprofile.serialize()
+        user_data["providerprofile"] = serialized_profile
+        
+        # Calculamos el promedio general de estrellas del proveedor para su perfil
+        reviews_list = serialized_profile.get("reviews", [])
+        if reviews_list:
+            avg = sum(r["rating"] for r in reviews_list) / len(reviews_list)
+            user_data["average_rating"] = round(avg, 1)
+        else:
+            user_data["average_rating"] = 0.0
 
     if not user.is_provider:
+        # Mostramos las citas del cliente e indicamos si ya están completadas y si tienen reseña
         user_data["client_appointments"] = [{
             "id": app.id,
+            "service_id": app.service_id,
             "service_title": app.service.title if app.service else "Servicio Eliminado",
-            "provider_name": app.service.provider.user.name if app.service and app.service.provider else "Desconocido",
-            "date": app.date_time.strftime("%d/%m/%Y")
-        } for app in user.appointments if app.status == "completed"]
+            "provider_id": app.service.provider.id if app.service and app.service.provider else None,
+            "provider_name": app.service.provider.user.name if app.service and app.service.provider and app.service.provider.user else "Desconocido",
+            "date": app.date_time.strftime("%d/%m/%Y") if app.date_time else "",
+            "status": app.status,
+            "is_completed": app.status == "completed",
+            "has_review": True if app.review else False
+        } for app in user.appointments if app.status != "cancelled"]
 
         user_data["client_reviews"] = [{
             "id": app.review.id,
             "rating": app.review.rating,
             "comment": app.review.comment,
-            "service_title": app.service.title,
+            "service_title": app.service.title if app.service else "Servicio",
             "date": app.review.created_at.strftime("%d/%m/%Y") if app.review.created_at else "Reciente"
         } for app in user.appointments if app.review]
 
@@ -974,19 +1003,29 @@ def toggle_follow(user_id):
 
 
 # sistema de reviews:
-# sistema de reviews:
 @api.route('/appointments/<int:appointment_id>/reviews', methods=['POST'])
 @jwt_required()
 def create_review(appointment_id):
     import json
+    import cloudinary.uploader
 
     current_user_id = int(get_jwt_identity())
-    body = request.get_json()
 
-    rating = body.get("rating")
-    comment = body.get("comment")
+    # Soporta tanto FormData (request.form) como JSON por seguridad
+    if request.content_type and 'application/json' in request.content_type:
+        data = request.get_json(silent=True) or {}
+        rating = data.get("rating")
+        comment = data.get("comment")
+    else:
+        rating = request.form.get("rating", type=int)
+        comment = request.form.get("comment")
 
-    if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+    try:
+        rating = int(rating)
+    except (TypeError, ValueError):
+        rating = None
+
+    if not rating or rating < 1 or rating > 5:
         return jsonify({"error": "El rating debe ser un número entre 1 y 5"}), 400
 
     appointment = Appointment.query.get(appointment_id)
@@ -1001,6 +1040,9 @@ def create_review(appointment_id):
         return jsonify({"error": "Esta cita ya tiene una reseña"}), 400
 
     try:
+        # ¡CLAVE!: Marcamos automáticamente la cita como completada al dejar la reseña
+        appointment.status = "completed"
+
         new_review = Review(
             appointment_id=appointment.id,
             rating=rating,
@@ -1008,9 +1050,19 @@ def create_review(appointment_id):
         )
 
         db.session.add(new_review)
-        db.session.flush()  # Obtenemos el ID y la fecha de creación antes del commit
+        db.session.flush()
 
-        # Crear notificación para el proveedor dueño del servicio
+        # Procesamiento de archivo multimedia opcional
+        file = request.files.get('media')
+        if file and file.filename != '':
+            upload_result = cloudinary.uploader.upload(file, folder="kelaj_reviews")
+            new_media = Media(
+                url=upload_result.get('secure_url'),
+                review_id=new_review.id
+            )
+            db.session.add(new_media)
+
+        # Notificación para el proveedor
         client_user = User.query.get(current_user_id)
         provider_user_id = (
             appointment.service.provider.user_id
@@ -1043,7 +1095,7 @@ def create_review(appointment_id):
         db.session.commit()
 
         return jsonify({
-            "message": "Reseña creada exitosamente",
+            "message": "Cita completada y reseña creada exitosamente",
             "review": new_review.serialize()
         }), 201
 
@@ -1867,16 +1919,21 @@ def get_client_appointments():
     result = []
     for app in appointments:
         provider_name = "Desconocido"
-        if app.service and app.service.provider and app.service.provider.user:
-            provider_name = f"{app.service.provider.user.name} {app.service.provider.user.last_name or ''}".strip()
+        provider_id = None
+        if app.service and app.service.provider:
+            provider_id = app.service.provider.id
+            if app.service.provider.user:
+                provider_name = f"{app.service.provider.user.name} {app.service.provider.user.last_name or ''}".strip()
 
         result.append({
             "id": app.id,
             "service_id": app.service_id,
             "service_title": app.service.title if app.service else "Servicio Eliminado",
+            "provider_id": provider_id,
             "provider_name": provider_name,
             "date_time": app.date_time.isoformat() if app.date_time else None,
-            "status": app.status
+            "status": app.status,
+            "has_review": True if app.review else False
         })
 
     return jsonify(result), 200
@@ -1926,6 +1983,38 @@ def update_appointment(appointment_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"error": f"Error al modificar la cita: {str(e)}"}), 500
+
+
+@api.route('/appointments/<int:appointment_id>', methods=['DELETE'])
+@jwt_required()
+def cancel_or_delete_appointment(appointment_id):
+    current_user_id = int(get_jwt_identity())
+    appointment = Appointment.query.get(appointment_id)
+
+    if not appointment:
+        return jsonify({"error": "Cita no encontrada"}), 404
+
+    is_client = int(appointment.client_id) == current_user_id
+    is_provider = (
+        appointment.service and 
+        appointment.service.provider and 
+        int(appointment.service.provider.user_id) == current_user_id
+    )
+
+    if not (is_client or is_provider):
+        return jsonify({"error": "No autorizado"}), 403
+
+    try:
+        # Si ya tiene reseña, solo la marcamos como completed para no romper la reseña
+        if appointment.review:
+            appointment.status = "completed"
+        else:
+            db.session.delete(appointment)
+        db.session.commit()
+        return jsonify({"message": "Cita actualizada correctamente"}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 
 # ============================

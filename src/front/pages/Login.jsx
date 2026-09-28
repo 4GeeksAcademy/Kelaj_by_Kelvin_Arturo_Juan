@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { useNavigate,Link } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
-import "../styles/juan.css";
+import "../styles/Login.css";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const heroImage = "https://images.unsplash.com/photo-1522071820081-009f0129c71c?q=80&w=1600&auto=format&fit=crop";
 
 export const Login = () => {
   const { dispatch } = useGlobalReducer();
@@ -79,14 +78,11 @@ export const Login = () => {
     setLoading(true);
 
     try {
-      // 1. Usamos el servicio limpio (él se encarga del fetch y los errores)
       const data = await loginUser(formData);
 
-      // Compatibilidad por si tu backend envía el token con otro nombre
       const validToken = data.token || data.access_token;
       const validUser = data.user;
 
-      // 2. Guardamos la sesión
       localStorage.setItem("token", validToken);
       localStorage.setItem("user", JSON.stringify(validUser));
 
@@ -95,7 +91,6 @@ export const Login = () => {
         payload: { user: validUser, token: validToken }
       });
 
-      // 3. Redirigimos al inicio
       navigate("/");
     } catch (err) {
       setError(err.message || "Ocurrió un error al conectar con el servidor");
@@ -105,72 +100,72 @@ export const Login = () => {
   };
 
   return (
-    <div className="juan-login">
-      <div className="left">
-        <h2 style={{ fontWeight: 700 }}>Bienvenido de nuevo</h2>
-        <p className="tagline">
-          Tus proyectos avanzan hoy. Encuentra al profesional perfecto y coordina
-          en más de 52 provincias de toda España.
-        </p>
+    <div className="row login-page d-flex justify-content-center align-items-center p-5">
+      <div className="login-card col-3">
+        {error && <div className="alert alert-danger py-2 small">{error}</div>}
 
-        <div className="card-login">
-          {error && <div className="alert alert-danger py-2">{error}</div>}
+        <form onSubmit={handleSubmit} className="login-form">
+          <h1 className="text-center">Iniciar sesión</h1>
 
-          <form onSubmit={handleSubmit} className="bg-white p-4 rounded-4 bg-opacity-50 shadow-sm border">
-            <h3 className="text-center fw-bold mb-4">Iniciar sesión</h3>
+          <div className="mb-3">
+            <label htmlFor="email" className="form-label fw-semibold small">
+              E-mail
+            </label>
+            <input
+              type="email"
+              id="email"
+              className="form-control login-input"
+              name="email"
+              value={formData.email}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-            <div className="mb-3">
-              <label htmlFor="email" className="form-label fw-semibold small">E-mail</label>
+          <div className="mb-4">
+            <label htmlFor="password" className="form-label fw-semibold small">
+              Contraseña
+            </label>
+            <input
+              type="password"
+              id="password"
+              className="form-control login-input"
+              name="password"
+              value={formData.password}
+              onChange={handleChange}
+              required
+            />
+          </div>
 
-              <input
-                type="email"
-                className="form-control rounded-pill my-1 px-3 py-2"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                required
-              />
+          <button
+            type="submit"
+            className="btn btn-primary w-100 py-2 fw-semibold rounded-pill mb-4"
+            disabled={!formData.email || !formData.password || loading}
+          >
+            {loading ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-2"></span>
+                Ingresando...
+              </>
+            ) : (
+              "Iniciar sesión"
+            )}
+          </button>
+
+          {GOOGLE_CLIENT_ID && (
+            <div className="login-google-wrapper">
+              <div id="google-login-btn"></div>
             </div>
+          )}
 
-            <div className="mb-4">
-              <label htmlFor="password" className="form-label fw-semibold small">Contraseña</label>
-              <input
-                type="password"
-                className="form-control rounded-pill my-1 px-3 py-2"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                required
-              />
-            </div>
-
-            {GOOGLE_CLIENT_ID ? (
-              <div className="d-flex justify-content-center">
-                <div id="google-login-btn"></div>
-              </div>
-            ) : null}
-
-            <button
-              type="submit"
-              className="btn btn-primary w-100 py-2 fw-semibold rounded-pill"
-              disabled={!formData.email || !formData.password || loading}
-            >
-              {loading ? (
-                <><span className="spinner-border spinner-border-sm me-2"></span>Ingresando...</>
-              ) : (
-                "Iniciar sesión"
-              )}
-            </button>
-
-            {/* Usamos <Link> en lugar de <a> para evitar la recarga completa del navegador */}
-            <p className="mt-4 text-center small">
-              ¿No tienes cuenta? crea una <Link to="/register" className="text-primary fw-bold text-decoration-none">Aquí</Link>
-            </p>
-          </form>
-
-        </div>
+          <p className="login-register-text">
+            ¿No tienes cuenta? crea una{" "}
+            <Link to="/register" className="text-primary fw-bold text-decoration-none">
+              Aquí
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
-
   );
 };
