@@ -1004,13 +1004,17 @@ def verify_start():
         return jsonify({"message": "Solo los proveedores pueden verificarse"}), 400
     user.verification_code = str(random.randint(100000, 999999))
     db.session.commit()
+    body = request.get_json() or {}
+    dest = (body.get("email") or "").strip() or user.email
+    if "@" not in dest:
+        return jsonify({"message": "Email no v\u00e1lido"}), 400
     try:
-        sent = _send_verification_email(user.email, user.verification_code)
+        sent = _send_verification_email(dest, user.verification_code)
     except Exception as e:
         print("Email error:", e)
         sent = False
     if sent:
-        return jsonify({"message": "Te enviamos un c\u00f3digo de 6 d\u00edgitos a " + user.email}), 200
+        return jsonify({"message": "Te enviamos un c\u00f3digo de 6 d\u00edgitos a " + dest}), 200
     print("DEBUG verify code for " + user.email + ": " + user.verification_code)
     return jsonify({
         "message": "Email no configurado en el servidor. C\u00f3digo de demostraci\u00f3n en la consola del backend.",

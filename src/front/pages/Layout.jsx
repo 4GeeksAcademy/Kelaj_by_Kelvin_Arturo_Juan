@@ -15,7 +15,7 @@ export const Layout = () => {
         <ScrollToTop>
             {showVerifyBanner && (
                 <div className="alert-warning m-0 text-center" style={{ padding: "10px 16px", fontSize: 14, borderBottom: "1px solid #ffe69c", position: "sticky", top: 0, zIndex: 1050 }}>
-                    Completa tu verificación en 2 pasos para mostrar el distintivo de <strong>proveedor verificado</strong>.{" "}
+                    Verifícate con tu cuenta de Google para mostrar el distintivo de <strong>proveedor verificado</strong>.{" "}
                     <Link to="/verificacion" style={{ fontWeight: 700 }}>Verificarme ahora</Link>
                 </div>
             )}
