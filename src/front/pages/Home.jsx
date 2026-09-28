@@ -1,8 +1,43 @@
-import React from "react"
-import { useNavigate, Link } from "react-router-dom"
-import useGlobalReducer from "../hooks/useGlobalReducer";
-import "../styles/Home.css"
-import "../index.css"
+import React from "react";
+import { Link } from "react-router-dom";
+import "../styles/Home.css";
+import "../index.css";
+
+const testimonials = [
+    {
+        initials: "SA",
+        name: "Sarah Ahmed",
+        text: "Encantada con la app, ha sido muy fácil y sencillo... En poco tiempo he resuelto mi problema."
+    },
+    {
+        initials: "MC",
+        name: "Michael Chen",
+        text: "Tiene muchos servicios y precios muy competitivos, la verdad que me ha gustado encontrarme con una plataforma así."
+    },
+    {
+        initials: "FM",
+        name: "Fatima Al Mansoori",
+        text: "He usado muchas otras apps, y gracias a Kelaj he podido encontrar el servicio que necesitaba con una garantía única y profesionales de primera."
+    }
+];
+
+const features = [
+    {
+        icon: "bi-tag-fill",
+        title: "Precio",
+        description: "Encuentra profesionales con las tarifas más competitivas"
+    },
+    {
+        icon: "bi-phone-fill",
+        title: "Comodidad",
+        description: "Pide tu servicio en cualquier momento, desde tu móvil"
+    },
+    {
+        icon: "bi-shield-check",
+        title: "Garantía",
+        description: "Profesionales locales y de confianza, soporte los 365 días del año"
+    }
+];
 
 export const Home = () => {
     const token = localStorage.getItem("token");
@@ -147,10 +182,6 @@ export const Home = () => {
                     </div>
                 </div>
             </section>
-
-
-
-            
         </div>
     );
 };
