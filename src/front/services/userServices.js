@@ -267,3 +267,212 @@ export const getCategories = async () => {
         return [];
     }
 };
+
+// ==========================================
+// ELIMINAR CUENTA DE USUARIO
+// ==========================================
+export const deleteAccount = async (userId) => {
+    const token = localStorage.getItem("token");
+    const response = await fetch(`${BACKEND_URL}/api/users/${userId}`, {
+        method: "DELETE",
+        headers: {
+            "Authorization": `Bearer ${token}`
+        }
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+        throw new Error(data.error || "Error al eliminar la cuenta");
+    }
+
+    return data;
+};
+
+// ==========================================
+// OBTENER, MODIFICAR Y ELIMINAR CITAS (CLIENTE)
+// ==========================================
+export const getClientAppointments = async () => {
+    const token = localStorage.getItem("token");
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/client/appointments`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        console.error("Error obteniendo citas:", error);
+        return [];
+    }
+};
+
+export const updateAppointment = async (appointmentId, newDateTime) => {
+    const token = localStorage.getItem("token");
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/appointments/${appointmentId}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ date_time: newDateTime })
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No se pudo modificar la cita");
+        return true;
+    } catch (error) {
+        console.error(error);
+        alert(error.message);
+        return false;
+    }
+};
+
+export const cancelAppointment = async (appointmentId) => {
+    const token = localStorage.getItem("token");
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/appointments/${appointmentId}`, {
+            method: "DELETE",
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "No se pudo eliminar la cita");
+        return true;
+    } catch (error) {
+        console.error(error);
+        alert(error.message);
+        return false;
+    }
+};
+
+export const getProviderAppointments = async () => {
+    const token = localStorage.getItem("token");
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/provider/appointments`, {
+            headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!response.ok) return [];
+        return await response.json();
+    } catch (error) {
+        console.error("Error obteniendo citas de proveedor:", error);
+        return [];
+    }
+};
+
+// ==========================================
+// DAR DE BAJA PERFIL DE PROVEEDOR
+// ==========================================
+export const downgradeProvider = async (userId) => {
+  const token = localStorage.getItem("token");
+  const response = await fetch(`${BACKEND_URL}/api/users/${userId}/provider`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || "Error al dar de baja el perfil de proveedor");
+  }
+
+  return data;
+};
+
+// ==========================================
+// SERVICIOS DE CHAT Y MENSAJERÍA
+// ==========================================
+export const getConversations = async () => {
+  const token = localStorage.getItem("token");
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/conversations`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Error obteniendo conversaciones:", error);
+    return [];
+  }
+};
+
+export const getMessages = async (userId) => {
+  const token = localStorage.getItem("token");
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/messages/${userId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Error obteniendo historial de mensajes:", error);
+    return [];
+  }
+};
+
+export const sendMessage = async (receiverId, content) => {
+  const token = localStorage.getItem("token");
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ receiver_id: receiverId, content }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Error al enviar mensaje");
+    return data;
+  } catch (error) {
+    console.error("Error enviando mensaje:", error);
+    return null;
+  }
+};
+
+// ==========================================
+// SERVICIOS DE NOTIFICACIONES
+// ==========================================
+export const getNotifications = async () => {
+  const token = localStorage.getItem("token");
+  if (!token) return [];
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notifications`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return [];
+    return await response.json();
+  } catch (error) {
+    console.error("Error obteniendo notificaciones:", error);
+    return [];
+  }
+};
+
+export const markNotificationAsRead = async (notificationId) => {
+  const token = localStorage.getItem("token");
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notifications/${notificationId}/read`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error("Error marcando notificación como leída:", error);
+    return null;
+  }
+};
+
+export const markAllNotificationsAsRead = async () => {
+  const token = localStorage.getItem("token");
+  try {
+    const response = await fetch(`${BACKEND_URL}/api/notifications/read-all`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.ok;
+  } catch (error) {
+    console.error("Error marcando todas las notificaciones como leídas:", error);
+    return false;
+  }
+};

@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { getCategories } from '../services/services';
 import { getUserLocation } from '../services/APIservices';
-import { searchProviders } from '../services/userServices';
+import { searchProviders, getFollowing, toggleFollow } from '../services/userServices';
 import useGlobalReducer from "../hooks/useGlobalReducer";
 import '../styles/ProvidersCatalog.css';
 
@@ -34,16 +34,88 @@ const StarRating = ({ rating, reviewsCount }) => {
 export const ProvidersCatalog = () => {
     const { store } = useGlobalReducer();
     const location = useLocation();
+    const navigate = useNavigate();
 
-    // Ahora guardamos las categorías completas (con sus subcategorías anidadas)
     const [categoriesData, setCategoriesData] = useState([]);
     const [allProviders, setAllProviders] = useState([]);
     const [filteredProviders, setFilteredProviders] = useState([]);
+    const [followingIds, setFollowingIds] = useState([]);
 
     const [loading, setLoading] = useState(true);
-    // El filtro activo ahora es un objeto para saber si es categoría general o subcategoría
     const [activeFilter, setActiveFilter] = useState({ type: "all", value: "" });
     const [detectedLocation, setDetectedLocation] = useState("");
+
+    // Control estricto: guarda únicamente el índice del dropdown abierto (o null)
+    const [openDropdown, setOpenDropdown] = useState(null);
+    const filtersRef = useRef(null);
+
+    // Cerrar el dropdown si se hace clic fuera de la barra de filtros
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (filtersRef.current && !filtersRef.current.contains(event.target)) {
+                setOpenDropdown(null);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    // Función para limpiar tanto filtros de categorías como búsquedas en la URL
+    const handleClearFilters = () => {
+        setActiveFilter({ type: "all", value: "" });
+        setOpenDropdown(null);
+        if (location.search) {
+            navigate("/catalog", { replace: true });
+        }
+    };
+
+    // Cargar la lista de usuarios a los que sigue el usuario logueado
+    useEffect(() => {
+        const fetchUserFollowing = async () => {
+            if (!store.user?.id) {
+                setFollowingIds([]);
+                return;
+            }
+            try {
+                const list = await getFollowing(store.user.id);
+                if (Array.isArray(list)) {
+                    const ids = list.map(item => (typeof item === "object" ? item.id : Number(item)));
+                    setFollowingIds(ids);
+                }
+            } catch (error) {
+                console.error("Error al cargar seguidos:", error);
+            }
+        };
+        fetchUserFollowing();
+    }, [store.user]);
+
+    // Seguir / Dejar de seguir desde el corazón de la tarjeta
+    const handleHeartClick = async (providerId) => {
+        if (!store.user) {
+            navigate("/login");
+            return;
+        }
+        if (store.user.id === providerId) return;
+
+        const isCurrentlyFollowing = followingIds.includes(providerId);
+
+        // Actualización visual inmediata
+        setFollowingIds(prev =>
+            isCurrentlyFollowing
+                ? prev.filter(id => id !== providerId)
+                : [...prev, providerId]
+        );
+
+        const res = await toggleFollow(providerId, isCurrentlyFollowing);
+        // Si hubo algún fallo en el servidor, revertimos el cambio visual
+        if (!res) {
+            setFollowingIds(prev =>
+                isCurrentlyFollowing
+                    ? [...prev, providerId]
+                    : prev.filter(id => id !== providerId)
+            );
+        }
+    };
 
     // 1. Detectar ubicación
     useEffect(() => {
@@ -92,20 +164,26 @@ export const ProvidersCatalog = () => {
                 const name = prov.name?.toLowerCase() || "";
                 const lastName = prov.last_name?.toLowerCase() || "";
                 const fullName = `${name} ${lastName}`;
+                const services = prov.providerprofile?.services || [];
+                const bio = prov.providerprofile?.bio?.toLowerCase() || "";
+                const desc = prov.providerprofile?.description?.toLowerCase() || "";
 
                 if (type === "person") {
                     return fullName.includes(query);
+                } else if (type === "service") {
+                    // Busca específicamente en los servicios ofrecidos (título y descripción del servicio)
+                    return services.some(s =>
+                        (s.title || "").toLowerCase().includes(query) ||
+                        (s.description || "").toLowerCase().includes(query)
+                    );
                 } else {
-                    const services = prov.providerprofile?.services || [];
-                    const bio = prov.providerprofile?.bio?.toLowerCase() || "";
-                    const desc = prov.providerprofile?.description?.toLowerCase() || "";
-
-                    const matchInServices = services.some(s =>
-                        s.title.toLowerCase().includes(query) ||
-                        (s.subcategory?.name || "").toLowerCase().includes(query)
+                    // "profession": Busca por especialidad, subcategoría, categoría o biografía del profesional
+                    const matchInProfession = services.some(s =>
+                        (s.subcategory?.name || "").toLowerCase().includes(query) ||
+                        (s.subcategory?.category_name || "").toLowerCase().includes(query)
                     );
 
-                    return matchInServices || bio.includes(query) || desc.includes(query);
+                    return matchInProfession || bio.includes(query) || desc.includes(query);
                 }
             });
         }
@@ -162,40 +240,47 @@ export const ProvidersCatalog = () => {
                 {/* Cabecera y Filtros Jerárquicos */}
                 <div className="mb-4">
                     <h3 className="fw-bold mb-3">Todos los servicios</h3>
-                    <div className="d-flex gap-2 flex-wrap pb-2">
-                        {/* Botón para reiniciar filtros */}
+                    <div className="d-flex gap-2 flex-wrap pb-2 align-items-center" ref={filtersRef}>
+                        {/* Botón Todas */}
                         <button
-                            className={`filter-pill fw-semibold ${activeFilter.type === "all" ? "active" : ""}`}
-                            onClick={() => setActiveFilter({ type: "all", value: "" })}
+                            className={`filter-pill fw-semibold ${activeFilter.type === "all" && !location.search ? "active" : ""}`}
+                            onClick={handleClearFilters}
                         >
                             Todas
                         </button>
 
-                        {/* Dropdowns de Categorías */}
+                        {/* Dropdowns de Categorías (Estrictamente 1 abierto a la vez) */}
                         {categoriesData.map((cat, idx) => {
-                            // Comprobamos si esta categoría o alguna de sus subcategorías está activa para colorear la píldora principal
                             const isActiveFamily =
                                 (activeFilter.type === "category" && activeFilter.value === cat.name) ||
                                 (activeFilter.type === "subcategory" && cat.subcategories.some(s => s.name === activeFilter.value));
 
+                            const isOpen = openDropdown === idx;
+
                             return (
-                                <div className="dropdown" key={idx}>
+                                <div className="dropdown position-relative" key={idx}>
                                     <button
                                         className={`filter-pill fw-semibold dropdown-toggle ${isActiveFamily ? "active" : ""}`}
                                         type="button"
-                                        data-bs-toggle="dropdown"
-                                        aria-expanded="false"
+                                        aria-expanded={isOpen}
+                                        onClick={() => setOpenDropdown(isOpen ? null : idx)}
                                     >
                                         {cat.name}
                                     </button>
 
-                                    <ul className="dropdown-menu shadow-sm border-0 rounded-3 mt-1">
-                             
+                                    <ul
+                                        className={`dropdown-menu shadow-sm border-0 rounded-3 mt-1 ${isOpen ? "show" : ""}`}
+                                        style={isOpen ? { position: "absolute", top: "100%", left: 0, zIndex: 1050 } : {}}
+                                    >
                                         {cat.subcategories.map(sub => (
                                             <li key={sub.id}>
                                                 <button
+                                                    type="button"
                                                     className={`dropdown-item py-2 ${activeFilter.value === sub.name ? "bg-light text-primary fw-bold" : ""}`}
-                                                    onClick={() => setActiveFilter({ type: "subcategory", value: sub.name })}
+                                                    onClick={() => {
+                                                        setActiveFilter({ type: "subcategory", value: sub.name });
+                                                        setOpenDropdown(null); // Cierra el menú al seleccionar
+                                                    }}
                                                 >
                                                     {sub.name}
                                                 </button>
@@ -207,7 +292,7 @@ export const ProvidersCatalog = () => {
                         })}
                     </div>
                     <div className='col-auto d-flex justify-content-end mt-3'>
-                    <p className="bg-light bg-opacity-50 rounded-pill px-3 py-1 small mt-2">¡{filteredProviders.length} proveedores cerca de ti!</p>
+                        <p className="bg-light bg-opacity-50 rounded-pill px-3 py-1 small mt-2">¡{filteredProviders.length} proveedores cerca de ti!</p>
                     </div>
                 </div>
 
@@ -228,6 +313,7 @@ export const ProvidersCatalog = () => {
 
                             const mainProfession = services[0]?.title || profile?.bio || "Profesional independiente";
                             const hasImage = provider.profile_image && !provider.profile_image.includes("ui-avatars");
+                            const isFollowing = followingIds.includes(provider.id);
 
                             return (
                                 <div key={provider.id} className="card bg-white border-0 shadow-sm rounded-4 provider-list-card position-relative overflow-hidden">
@@ -236,7 +322,12 @@ export const ProvidersCatalog = () => {
 
                                             {/* Foto / Iniciales */}
                                             <div className="col-auto mb-3 mb-sm-0 position-relative">
-                                                <i className="bi bi-heart position-absolute bg-white rounded-circle px-1 shadow-sm text-muted" style={{ top: "-5px", right: "-5px", cursor: "pointer", zIndex: 2 }}></i>
+                                                <i
+                                                    onClick={() => handleHeartClick(provider.id)}
+                                                    title={isFollowing ? "Siguiendo (clic para dejar de seguir)" : "Seguir proveedor"}
+                                                    className={`bi ${isFollowing ? "bi-heart-fill text-danger" : "bi-heart text-muted"} position-absolute bg-white rounded-circle px-1 shadow-sm`}
+                                                    style={{ top: "-5px", right: "-5px", cursor: "pointer", zIndex: 2 }}
+                                                ></i>
 
                                                 {hasImage ? (
                                                     <img src={provider.profile_image} alt={provider.name} className="avatar-square shadow-sm border" />
@@ -281,7 +372,7 @@ export const ProvidersCatalog = () => {
                                         </div>
                                     </div>
                                 </div>
-                            )
+                            );
                         })}
                     </div>
                 )}
