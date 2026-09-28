@@ -1,0 +1,67 @@
+/* ============ Juan ============ */
+.juan-login {
+    display: flex;
+    min-height: calc(100vh - 70px);
+}
+.juan-login .left {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 56px;
+    background: #f7f9fc;
+}
+.juan-login .card-login {
+    width: 100%;
+    max-width: 420px;
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+    padding: 32px;
+    background: #fff;
+}
+.juan-login .tagline {
+    font-size: 1.15rem;
+    color: #495057;
+    margin-bottom: 24px;
+    max-width: 420px;
+}
+.juan-login .right {
+    flex: 1;
+    background-size: cover;
+    background-position: center;
+    min-height: 480px;
+}
+.juan-login .right .overlay {
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    padding: 48px;
+    color: #fff;
+    background: linear-gradient(to top, rgba(13, 110, 253, 0.55), rgba(0, 0, 0, 0.05));
+}
+.juan-login .right .overlay p {
+    font-size: 1.4rem;
+    font-weight: 600;
+    max-width: 380px;
+}
+@media (max-width: 900px) {
+    .juan-login {
+        flex-direction: column;
+    }
+    .juan-login .left {
+        padding: 32px 20px;
+    }
+    .juan-login .right {
+        order: -1;
+        min-height: 220px;
+    }
+    .juan-login .right .overlay {
+        padding: 24px;
+    }
+}
+
+.juan-login .left.register {
+    padding: 28px 56px;
+    overflow-y: auto;
+}

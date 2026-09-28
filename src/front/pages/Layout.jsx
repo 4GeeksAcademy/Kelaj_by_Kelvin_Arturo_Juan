@@ -5,6 +5,10 @@ import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
 export const Layout = () => {
+    const { store } = useGlobalReducer()
+    const user = store.user
+    const showVerifyBanner = Boolean(user && user.is_provider && user.verified === false)
+
     return (
         <ScrollToTop>
             {/* Contenedor principal con altura mínima del 100% de la pantalla */}
