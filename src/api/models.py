@@ -85,7 +85,8 @@ class User(db.Model):
             "id": self.id,
             "name": self.name,
             "last_name": self.last_name,
-            "profile_image": self.profile_image
+            "profile_image": self.profile_image,
+            "city": self.city
         }
 
 
@@ -163,7 +164,7 @@ class ProviderProfile(db.Model):
             "bio": self.bio,
             "coverage_area": self.coverage_area,
             "is_home_service": self.is_home_service,
-            "services": [service.serialize_basic() for service in self.services],
+            "services": [service.serialize() for service in self.services],
             "reviews": lista_resenas,
             "gallery": [port.serialize() for port in self.portfolio] if self.portfolio else [],
             
@@ -285,6 +286,7 @@ class Service(db.Model):
         return {
             "id": self.id,
             "title": self.title,
+            "subcategory_id": self.subcategory_id,
             "price": float(self.price),
             "price_type": self.price_type, # <-- Añadido
             "estimated_duration": self.estimated_duration,
@@ -344,6 +346,18 @@ class Appointment(db.Model):
 
     transaction: Mapped["Transaction"] = relationship(
         back_populates="appointment", uselist=False)
+
+    def serialize(self):
+        return {
+            "id": self.id,
+            "client_id": self.client_id,
+            "client_name": f"{self.client.name} {self.client.last_name or ''}".strip() if self.client else "Cliente",
+            "service_id": self.service_id,
+            "service_title": self.service.title if self.service else "Servicio",
+            "date_time": self.date_time.isoformat() if self.date_time else None,
+            "status": self.status,
+            "has_review": True if self.review else False
+        }
 
 
 class ProviderSchedule(db.Model):
@@ -491,4 +505,39 @@ class ProviderPortfolio(db.Model):
             "description": self.description or "Sin descripción",
             "urls": urls_list,
             "date": self.created_at.strftime("%d/%m/%Y") if self.created_at else "Fecha desconocida"
+        }
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    actor_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
+    type: Mapped[str] = mapped_column(String(50), nullable=False)
+    # Tipos: 'new_message', 'new_follower', 'appointment_requested', 'appointment_cancelled', 'new_service', 'new_media'
+    message: Mapped[str] = mapped_column(String(255), nullable=False)
+    data_json: Mapped[str] = mapped_column(Text, nullable=True)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[DateTime] = mapped_column(DateTime, default=db.func.now())
+
+    user: Mapped["User"] = relationship(foreign_keys=[user_id])
+    actor: Mapped["User"] = relationship(foreign_keys=[actor_id])
+
+    def serialize(self):
+        import json
+        try:
+            parsed_data = json.loads(self.data_json) if self.data_json else {}
+        except Exception:
+            parsed_data = {}
+
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "actor_id": self.actor_id,
+            "actor_info": self.actor.serialize_basic() if self.actor else None,
+            "type": self.type,
+            "message": self.message,
+            "data": parsed_data,
+            "is_read": self.is_read,
+            "created_at": self.created_at.isoformat() if self.created_at else None
         }

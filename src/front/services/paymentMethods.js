@@ -1,5 +1,30 @@
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL;
 
+// Crear SetupIntent (crea el stripe_customer_id en el backend si el usuario aún no lo tiene)
+export const createSetupIntent = async () => {
+  const token = localStorage.getItem("token");
+
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/stripe/setup-intent`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (!res.ok) {
+      console.warn("Error al crear setup intent:", res.status);
+      return null;
+    }
+
+    return await res.json(); // devuelve { client_secret }
+  } catch (error) {
+    console.error("Error de conexión en createSetupIntent:", error);
+    return null;
+  }
+};
+
 // Obtener métodos de pago
 export const getPaymentMethods = async () => {
   const token = localStorage.getItem("token");
@@ -43,7 +68,7 @@ export const addPaymentMethod = async (data) => {
   const contentType = res.headers.get("content-type");
   if (!contentType || !contentType.includes("application/json")) {
     console.warn("Respuesta no es JSON:", contentType);
-    return [];
+    return null;
   }
   return await res.json();
 };
@@ -70,5 +95,5 @@ export const deletePaymentMethod = async (id) => {
     return await res.json(); // devuelve { success: true }
   }
 
-  return true; 
+  return true;
 };
