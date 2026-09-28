@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import useGlobalReducer from "../hooks/useGlobalReducer";
-import { VerifiedBadge } from "../components/VerifiedBadge";
+import { VerifiedBadge } from "./VerifiedBadge";
 
 const backendUrl = import.meta.env.VITE_BACKEND_URL;
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;

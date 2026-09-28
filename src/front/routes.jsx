@@ -21,7 +21,7 @@ import { ProvidersCatalog } from "./pages/ProvidersCatalog";
 import { Results } from "./pages/Results";
 import { AdminFeatured } from "./pages/AdminFeatured";
 import { Providers } from "./pages/Providers";
-import { VerificationPage } from "./pages/VerificationPage";
+import { VerificationPage } from "./components/VerificationPage";
 import ClientDashboard from "./pages/ClientDashboard";
 import { Chat } from "./pages/Chat";
 
