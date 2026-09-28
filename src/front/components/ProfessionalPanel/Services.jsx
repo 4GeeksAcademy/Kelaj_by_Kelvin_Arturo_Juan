@@ -52,7 +52,7 @@ export default function Services() {
 
               <div className="service-meta">
                 <span>⏱ {s.estimated_duration || 60} min</span>
-                <span>💶 {s.price} € / {s.price_type === 'hourly' ? 'hora' : 'sesión'}</span>
+                <span>{s.price} € / {s.price_type === 'hourly' ? 'hora' : 'sesión'}</span>
               </div>
 
               <div className="service-actions">
