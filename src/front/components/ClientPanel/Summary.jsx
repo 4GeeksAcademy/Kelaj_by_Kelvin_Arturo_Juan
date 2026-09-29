@@ -34,12 +34,12 @@ export default function ClientSummary({ data, setActiveSection }) {
             <span className="pulse-indicator"></span>
             <span>Sesión en curso ahora mismo: <strong>{activeSession.title} con {activeSession.provider_name} - {activeSession.time}</strong></span>
           </div>
-          <button className="btn btn-success btn-sm rounded-pill px-3 py-1 text-white fw-semibold" style={{fontSize: '12px'}}>Ver</button>
+          <button className="btn btn-success btn-sm rounded-pill px-3 py-1 text-white fw-semibold" style={{ fontSize: '12px' }}>Ver</button>
         </div>
       )}
 
       {/* 4 KPIs Principales */}
-      <div className="kpi-grid mb-4" style={{gridTemplateColumns: 'repeat(2, 1fr)'}}>
+      <div className="kpi-grid mb-4" style={{ gridTemplateColumns: 'repeat(2, 1fr)' }}>
         <div className="kpi-card">
           <div className="d-flex justify-content-between align-items-start">
             <span className="kpi-label">Reservas activas</span>
@@ -88,7 +88,7 @@ export default function ClientSummary({ data, setActiveSection }) {
             upcomingReservations.map(res => (
               <div key={res.id} className={`reservation-card-styled status-${res.status}`}>
                 <div className="reservation-card-left">
-                  <img src={res.provider_image || "https://via.placeholder.com/45"} alt="Pro" className="client-avatar-placeholder" style={{objectFit: 'cover'}} />
+                  <img src={res.provider_image || "https://via.placeholder.com/45"} alt="Pro" className="client-avatar-placeholder" style={{ objectFit: 'cover' }} />
                   <div>
                     <strong className="client-name">{res.provider_name || "Profesional"}</strong>
                     <p className="service-title-text">{res.service_title}</p>
@@ -122,13 +122,13 @@ export default function ClientSummary({ data, setActiveSection }) {
             followingProfessionals.map(prof => (
               <div key={prof.id} className="d-flex justify-content-between align-items-center p-2 border-bottom">
                 <div className="d-flex align-items-center gap-3">
-                  <img src={prof.profile_image} alt="" className="rounded-circle" style={{width: '45px', height: '45px', objectFit: 'cover'}} />
+                  <img src={prof.profile_image} alt="" className="rounded-circle" style={{ width: '45px', height: '45px', objectFit: 'cover' }} />
                   <div>
                     <h5 className="mb-0 fs-6 fw-bold">{prof.name}</h5>
                     <small className="text-muted">{prof.category || "Especialista"}</small>
                   </div>
                 </div>
-                <button className="btn btn-primary btn-sm rounded-pill px-3" style={{fontSize: '13px'}}>Agendar</button>
+                <button className="btn btn-primary btn-sm rounded-pill px-3" style={{ fontSize: '13px' }}>Agendar</button>
               </div>
             ))
           ) : (
@@ -141,14 +141,14 @@ export default function ClientSummary({ data, setActiveSection }) {
       <div className="summary-card-container">
         <div className="section-header">
           <h3>Últimos servicios</h3>
-          <button className="text-link" onClick={() => alert("Ir a historial")}>Ver historial &gt;</button>
+          <button className="text-link" onClick={() => setActiveSection("reservations")}>Ver historial &gt;</button>
         </div>
         <div className="reservations-list mt-3">
           {latestServices.length > 0 ? (
             latestServices.map(serv => (
               <div key={serv.id} className="reservation-card-styled status-confirmed">
                 <div className="reservation-card-left">
-                  <img src={serv.provider_image || "https://via.placeholder.com/45"} alt="" className="client-avatar-placeholder" style={{objectFit: 'cover'}} />
+                  <img src={serv.provider_image || "https://via.placeholder.com/45"} alt="" className="client-avatar-placeholder" style={{ objectFit: 'cover' }} />
                   <div>
                     <strong className="client-name">{serv.provider_name || "Profesional"}</strong>
                     <p className="service-title-text">{serv.service_title}</p>

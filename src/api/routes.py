@@ -928,7 +928,7 @@ def get_user_profile(user_id):
     if user.is_provider and user.providerprofile:
         serialized_profile = user.providerprofile.serialize()
         user_data["providerprofile"] = serialized_profile
-        
+
         # Calculamos el promedio general de estrellas del proveedor para su perfil
         reviews_list = serialized_profile.get("reviews", [])
         if reviews_list:
@@ -1062,7 +1062,8 @@ def create_review(appointment_id):
         # Procesamiento de archivo multimedia opcional
         file = request.files.get('media')
         if file and file.filename != '':
-            upload_result = cloudinary.uploader.upload(file, folder="kelaj_reviews")
+            upload_result = cloudinary.uploader.upload(
+                file, folder="kelaj_reviews")
             new_media = Media(
                 url=upload_result.get('secure_url'),
                 review_id=new_review.id
@@ -1451,22 +1452,21 @@ def delete_provider_service(service_id):
 # ============================
 # PANEL CLIENTE
 # ============================
-# ============================
-# PANEL CLIENTE
-# ============================
+
+
 @api.route('/client/dashboard', methods=['GET'])
 @jwt_required()
 def get_client_dashboard():
     try:
         current_user_id = get_jwt_identity()
         user = User.query.get(current_user_id)
-        
+
         if not user:
             return jsonify({"error": "Usuario no encontrado"}), 404
 
         appointments = []
         try:
-            from models import Appointment
+            from api.models import Appointment
             appointments = Appointment.query.filter_by(client_id=user.id).all()
         except Exception:
             appointments = getattr(user, 'appointments', [])
@@ -1475,30 +1475,54 @@ def get_client_dashboard():
         latest_services_list = []
         total_invested_val = 0.0
 
+        # Fecha y hora actual del servidor para comparar si el servicio ya se realizó
+        now = datetime.now()
+# Mapeo de los profesionales seguidos reales
+        following_list = []
+        if hasattr(user, 'following') and user.following:
+            for followed in user.following:
+                # Obtenemos datos del perfil de profesional si los tiene
+                prof_profile = followed.providerprofile
+                following_list.append({
+                    "id": followed.id,
+                    "name": f"{followed.name} {followed.last_name or ''}".strip(),
+                    "profile_image": followed.profile_image or "",
+                    "city": followed.city or "Madrid",
+                    "category": prof_profile.role if prof_profile and prof_profile.role else "Especialista"
+                })
+
         for a in appointments:
             status = getattr(a, 'status', 'pending')
-            
+
             # Obtenemos el servicio asociado y su precio real
             service_obj = getattr(a, 'service', None)
             service_title = service_obj.title if service_obj else "Servicio"
-            service_price = float(service_obj.price) if service_obj and hasattr(service_obj, 'price') and service_obj.price else 0.0
+            service_price = float(service_obj.price) if service_obj and hasattr(
+                service_obj, 'price') and service_obj.price else 0.0
 
-            # ---------------------------------------------------------
-            # FORMA CORRECTA DE OBTENER EL NOMBRE Y FOTO DEL PROVEEDOR
-            # ---------------------------------------------------------
+            # Obtenemos la fecha y hora de la cita
+            raw_date = getattr(a, 'date_time', None) or getattr(
+                a, 'date', None)
+
+            # LÓGICA DINÁMICA DE TIEMPO:
+            # Si la cita NO está cancelada y su fecha/hora ya pasó, se considera completada automáticamente
+            if raw_date and status != 'cancelled':
+                try:
+                    appointment_dt = raw_date if isinstance(
+                        raw_date, datetime) else datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
+                    if appointment_dt < now:
+                        status = 'completed'
+                except Exception as ex:
+                    print("Error al comparar fecha de cita:", ex)
+
+            # Extracción del nombre y foto del profesional
             prov_name = "Profesional"
             prov_image = ""
-
             if service_obj and service_obj.provider and service_obj.provider.user:
                 prov_user = service_obj.provider.user
                 prov_name = f"{prov_user.name} {prov_user.last_name or ''}".strip()
                 prov_image = prov_user.profile_image or ""
-            elif hasattr(a, 'provider') and a.provider and hasattr(a.provider, 'user') and a.provider.user:
-                prov_user = a.provider.user
-                prov_name = f"{prov_user.name} {prov_user.last_name or ''}".strip()
-                prov_image = prov_user.profile_image or ""
 
-            raw_date = getattr(a, 'date_time', None) or getattr(a, 'date', None)
             formatted_date = str(raw_date) if raw_date else "Por definir"
 
             appointment_data = {
@@ -1512,26 +1536,22 @@ def get_client_dashboard():
                 "price": service_price
             }
 
+            # Clasificación según el estado calculado
             if status == 'completed':
                 total_invested_val += service_price
                 latest_services_list.append(appointment_data)
             elif status in ['in_progress', 'upcoming', 'confirmed', 'pending']:
                 active_reservations_list.append(appointment_data)
 
-        created_year = user.created_at.year if hasattr(user, 'created_at') and user.created_at else 2025
+            # Nota: Si el usuario deja una reseña en profile.jsx, el backend actualiza el estado a 'completed',
+            # por lo que esta lógica de tiempo y el sistema de reseñas convivirán en harmonía sin conflictos.
+
+        # Tomamos el año real desde date_created del modelo User de la base de datos
+        created_year = user.date_created.year if hasattr(
+            user, 'date_created') and user.date_created else datetime.now().year
+
         user_data = user.serialize()
         user_data['member_since'] = created_year
-        
-        # Obtenemos la lista real de profesionales seguidos
-        following_list = []
-        if hasattr(user, 'following'):
-            for followed_user in user.following:
-                following_list.append({
-                    "id": followed_user.id,
-                    "name": f"{followed_user.name} {followed_user.last_name or ''}".strip(),
-                    "category": followed_user.category if hasattr(followed_user, 'category') else "Especialista",
-                    "profile_image": followed_user.profile_image or ""
-                })
 
         return jsonify({
             "user_info": user_data,
@@ -1539,7 +1559,7 @@ def get_client_dashboard():
                 "active_reservations": len(active_reservations_list),
                 "completed_services": len(latest_services_list),
                 "total_invested": total_invested_val,
-                "following_count": len(following_list)
+                "following_count": len(user.following) if hasattr(user, 'following') else 0
             },
             "upcoming_reservations": active_reservations_list,
             "following_professionals": following_list,
@@ -1566,6 +1586,8 @@ def internal_error(error):
 # ============================
 # SUBIR FOTO DE PORTADA
 # ============================
+
+
 @api.route('/users/<int:user_id>/cover_image', methods=['POST'])
 @jwt_required()
 def upload_cover_image(user_id):
@@ -1646,9 +1668,11 @@ def downgrade_provider_profile(user_id):
         from api.models import Media, ProviderSchedule
 
         # Eliminamos los servicios y sus citas pasadas (reseñas y transacciones asociadas)
-        provider_services = Service.query.filter_by(provider_id=provider_id).all()
+        provider_services = Service.query.filter_by(
+            provider_id=provider_id).all()
         for srv in provider_services:
-            srv_appointments = Appointment.query.filter_by(service_id=srv.id).all()
+            srv_appointments = Appointment.query.filter_by(
+                service_id=srv.id).all()
             for app in srv_appointments:
                 if app.review:
                     Media.query.filter_by(review_id=app.review.id).delete()
@@ -1667,7 +1691,7 @@ def downgrade_provider_profile(user_id):
 
         # Eliminamos el perfil de la tabla ProviderProfile
         db.session.delete(user.providerprofile)
-        
+
         # Le quitamos el rol de proveedor al usuario
         user.is_provider = False
         user.role = "buyer"
@@ -1760,24 +1784,26 @@ def get_messages(user_id):
     # Buscamos mensajes en ambas direcciones ordenados cronológicamente
     messages = Message.query.filter(
         db.or_(
-            db.and_(Message.sender_id == current_user_id, Message.receiver_id == user_id),
-            db.and_(Message.sender_id == user_id, Message.receiver_id == current_user_id)
+            db.and_(Message.sender_id == current_user_id,
+                    Message.receiver_id == user_id),
+            db.and_(Message.sender_id == user_id,
+                    Message.receiver_id == current_user_id)
         )
     ).order_by(Message.timestamp.asc()).all()
 
     return jsonify([msg.serialize() for msg in messages]), 200
 
-
-
-
-        # ============================
+    # ============================
 # OBTENER CITAS DEL CLIENTE
 # ============================
+
+
 @api.route('/client/appointments', methods=['GET'])
 @jwt_required()
 def get_client_appointments():
     current_user_id = int(get_jwt_identity())
-    appointments = Appointment.query.filter_by(client_id=current_user_id).order_by(Appointment.date_time.asc()).all()
+    appointments = Appointment.query.filter_by(
+        client_id=current_user_id).order_by(Appointment.date_time.asc()).all()
 
     result = []
     for app in appointments:
@@ -1786,7 +1812,8 @@ def get_client_appointments():
         if app.service and app.service.provider:
             provider_id = app.service.provider.id
             if app.service.provider.user:
-                provider_name = f"{app.service.provider.user.name} {app.service.provider.user.last_name or ''}".strip()
+                provider_name = f"{app.service.provider.user.name} {app.service.provider.user.last_name or ''}".strip(
+                )
 
         result.append({
             "id": app.id,
@@ -1824,7 +1851,8 @@ def update_appointment(appointment_id):
         return jsonify({"error": "Debes enviar la nueva fecha y hora (date_time)"}), 400
 
     try:
-        parsed_date = datetime.fromisoformat(new_date_time.replace("Z", "+00:00"))
+        parsed_date = datetime.fromisoformat(
+            new_date_time.replace("Z", "+00:00"))
     except ValueError:
         return jsonify({"error": "Formato de fecha inválido"}), 400
 
@@ -1859,8 +1887,8 @@ def cancel_or_delete_appointment(appointment_id):
 
     is_client = int(appointment.client_id) == current_user_id
     is_provider = (
-        appointment.service and 
-        appointment.service.provider and 
+        appointment.service and
+        appointment.service.provider and
         int(appointment.service.provider.user_id) == current_user_id
     )
 
@@ -1960,7 +1988,8 @@ def get_notifications():
 @jwt_required()
 def mark_notification_read(notification_id):
     current_user_id = int(get_jwt_identity())
-    notif = Notification.query.filter_by(id=notification_id, user_id=current_user_id).first()
+    notif = Notification.query.filter_by(
+        id=notification_id, user_id=current_user_id).first()
     if not notif:
         return jsonify({"error": "Notificación no encontrada"}), 404
 
@@ -1976,13 +2005,16 @@ def mark_notification_read(notification_id):
 @jwt_required()
 def mark_all_notifications_read():
     current_user_id = int(get_jwt_identity())
-    Notification.query.filter_by(user_id=current_user_id, is_read=False).update({"is_read": True})
+    Notification.query.filter_by(
+        user_id=current_user_id, is_read=False).update({"is_read": True})
     db.session.commit()
     return jsonify({"message": "Todas las notificaciones marcadas como leídas"}), 200
 
 # ============================
 # OBTENER CITAS DEL PROVEEDOR
 # ============================
+
+
 @api.route('/provider/appointments', methods=['GET'])
 @jwt_required()
 def get_provider_appointments():
@@ -2001,11 +2033,13 @@ def get_provider_appointments():
 # ============================
 # CANCELAR CITA Y PROCESAR REEMBOLSO
 # ============================
+
+
 @api.route('/appointments/<int:appointment_id>/cancel', methods=['PUT'])
 @jwt_required()
 def cancel_appointment_with_refund(appointment_id):
     current_user_id = int(get_jwt_identity())
-    
+
     appointment = Appointment.query.get(appointment_id)
     if not appointment:
         return jsonify({"error": "Cita no encontrada"}), 404
@@ -2027,13 +2061,13 @@ def cancel_appointment_with_refund(appointment_id):
         # Verificar si la cita tiene una transacción de pago asociada para reembolsar en Stripe
         if appointment.transaction and appointment.transaction.provider_transaction_id:
             payment_intent_id = appointment.transaction.provider_transaction_id
-            
+
             # Llamada oficial a la API de Stripe para emitir el reembolso del PaymentIntent
             refund = stripe.Refund.create(
                 payment_intent=payment_intent_id,
                 reason="requested_by_customer"
             )
-            
+
             refund_processed = True
             refund_details = refund.id
 
@@ -2062,6 +2096,8 @@ def cancel_appointment_with_refund(appointment_id):
         db.session.rollback()
         print("Error interno cancelando cita:", str(e))
         return jsonify({"error": "Error interno al cancelar la cita"}), 500
+
+
 @api.route('/verify/start', methods=['POST'])
 @jwt_required()
 def verify_start():
@@ -2101,7 +2137,8 @@ def verify_confirm():
     if not user.verification_code or user.verification_code != code:
         return jsonify({"message": "C\u00f3digo incorrecto. Intenta de nuevo"}), 400
     if user.providerprofile is None:
-        db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+        db.session.add(ProviderProfile(user_id=user.id,
+                       verified=True, role="provider"))
     else:
         user.providerprofile.verified = True
     user.verification_code = None
@@ -2133,7 +2170,8 @@ def verify_google():
     if (user.email or "").lower() != google_email:
         return jsonify({"message": "La cuenta de Google no coincide con tu correo de Kelaj"}), 400
     if user.providerprofile is None:
-        db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+        db.session.add(ProviderProfile(user_id=user.id,
+                       verified=True, role="provider"))
     else:
         user.providerprofile.verified = True
     user.verification_code = None
@@ -2167,7 +2205,8 @@ def auth_google():
         if role not in ["buyer", "provider"]:
             role = "buyer"
         user = User(
-            name=info.get("given_name") or info.get("name") or email.split("@")[0],
+            name=info.get("given_name") or info.get(
+                "name") or email.split("@")[0],
             last_name=info.get("family_name"),
             email=email,
             password_hash=generate_password_hash(secrets.token_urlsafe(24)),
@@ -2180,12 +2219,14 @@ def auth_google():
         created = True
     if user.is_provider:
         if user.providerprofile is None:
-            db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+            db.session.add(ProviderProfile(user_id=user.id,
+                           verified=True, role="provider"))
         else:
             user.providerprofile.verified = True
         db.session.commit()
     roles = ["buyer", "provider"] if user.is_provider else ["buyer"]
-    access_token = create_access_token(identity=str(user.id), additional_claims={"roles": roles})
+    access_token = create_access_token(identity=str(
+        user.id), additional_claims={"roles": roles})
     return jsonify({
         "message": "cuenta creada con Google" if created else "login exitoso",
         "created": created,

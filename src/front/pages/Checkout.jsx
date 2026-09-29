@@ -118,6 +118,10 @@ export default function Checkout() {
   }, [serviceId]);
 
   useEffect(() => {
+    setAppointmentId(null);
+  }, [selectedSlot, selectedDate]);
+
+  useEffect(() => {
     if (step !== 6 || selectedPaymentMethod) return;
 
     const publicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
@@ -170,22 +174,38 @@ export default function Checkout() {
   const commission = service.price * 0.05;
   const total = service.price + commission;
 
-  const handleAppointment = async () => {
+const handleAppointment = async () => {
     if (!selectedSlot) {
       alert("Debes seleccionar una fecha y hora");
       return;
     }
 
+    // Si ya se había creado una cita en un intento previo, la reutilizamos sin duplicar
+    if (appointmentId) {
+      if (paymentMethods.length === 0) {
+        changeStep(6);
+      } else {
+        changeStep(5);
+      }
+      return;
+    }
+
     const date_time = `${selectedSlot.date}T${selectedSlot.start_time}:00`;
-    const data = { service_id: service.id, date_time: date_time };
+
+    const data = {
+      service_id: service.id,
+      date_time: date_time
+    };
 
     const res = await createAppointment(data);
+
     if (!res || !res.appointment) {
       alert("No se pudo crear la cita");
       return;
     }
 
     setAppointmentId(res.appointment.id);
+
     if (paymentMethods.length === 0) {
       changeStep(6);
     } else {

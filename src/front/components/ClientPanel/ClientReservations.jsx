@@ -1,7 +1,13 @@
 import React from "react";
 
-export default function ClientReservations({ reservations = [] }) {
-  // Función para formatear el estado de la cita amigablemente
+export default function ClientReservations({ data }) {
+  // Extraemos ambas listas directamente desde el objeto global 'data' del dashboard
+  const upcoming = data?.upcoming_reservations || [];
+  const completed = data?.latest_services || [];
+  
+  // Unimos las citas activas y las completadas en un solo array
+  const allAppointments = [...upcoming, ...completed];
+
   const getStatusLabel = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending': return 'Pendiente';
@@ -13,7 +19,6 @@ export default function ClientReservations({ reservations = [] }) {
     }
   };
 
-  // Lógica de cancelación con reembolso automático en Stripe
   const handleCancelAppointment = async (appointmentId) => {
     if (!window.confirm("¿Estás seguro de que deseas cancelar esta reserva? Se procesará el reembolso automático a tu tarjeta.")) {
       return;
@@ -28,15 +33,15 @@ export default function ClientReservations({ reservations = [] }) {
         }
       });
 
-      const data = await response.json();
+      const dataRes = await response.json();
 
       if (!response.ok) {
-        alert(data.error || "No se pudo cancelar la cita");
+        alert(dataRes.error || "No se pudo cancelar la cita");
         return;
       }
 
       alert("¡Cita cancelada con éxito! El reembolso ha sido solicitado a tu tarjeta.");
-      window.location.reload(); // Recarga para actualizar los estados del panel
+      window.location.reload(); 
     } catch (error) {
       console.error("Error de red:", error);
       alert("Error de conexión al intentar cancelar la cita.");
@@ -45,12 +50,12 @@ export default function ClientReservations({ reservations = [] }) {
 
   return (
     <div className="summary-card-container">
-      <h3>Mis Reservas</h3>
-      <p className="text-muted mt-1 mb-3" style={{ fontSize: '14px' }}>Historial y gestión de tus citas</p>
+      <h3>Mis Reservas e Historial</h3>
+      <p className="text-muted mt-1 mb-3" style={{ fontSize: '14px' }}>Gestión de tus citas activas y completadas</p>
       
       <div className="reservations-list mt-3">
-        {reservations.length > 0 ? (
-          reservations.map(res => {
+        {allAppointments.length > 0 ? (
+          allAppointments.map(res => {
             const isCancelable = ['pending', 'confirmed', 'upcoming', 'in_progress'].includes(res.status?.toLowerCase());
 
             return (
@@ -78,7 +83,6 @@ export default function ClientReservations({ reservations = [] }) {
                     <span className="price-tag">{res.price} €</span>
                   </div>
 
-                  {/* Botón de cancelar visible solo si la cita está activa */}
                   {isCancelable && (
                     <button
                       className="btn btn-outline-danger btn-sm rounded-pill px-3 py-1 mt-2 fw-semibold"
