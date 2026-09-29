@@ -164,7 +164,7 @@ export const ProvidersCatalog = () => {
                 const name = prov.name?.toLowerCase() || "";
                 const lastName = prov.last_name?.toLowerCase() || "";
                 const fullName = `${name} ${lastName}`;
-                const services = prov.providerprofile?.services || [];
+                const services = (prov.providerprofile?.services || []).filter(s => s.visible !== false);
                 const bio = prov.providerprofile?.bio?.toLowerCase() || "";
                 const desc = prov.providerprofile?.description?.toLowerCase() || "";
 
@@ -219,13 +219,13 @@ export const ProvidersCatalog = () => {
             const validSubNames = targetCat ? targetCat.subcategories.map(s => s.name) : [];
 
             result = result.filter(prov => {
-                const services = prov.providerprofile?.services || [];
+                const services = (prov.providerprofile?.services || []).filter(s => s.visible !== false);
                 return services.some(s => validSubNames.includes(s.subcategory?.name));
             });
         } else if (activeFilter.type === "subcategory") {
             // Si elige una subcategoría específica
             result = result.filter(prov => {
-                const services = prov.providerprofile?.services || [];
+                const services = (prov.providerprofile?.services || []).filter(s => s.visible !== false);
                 return services.some(s => s.subcategory?.name === activeFilter.value);
             });
         }
@@ -309,7 +309,7 @@ export const ProvidersCatalog = () => {
                     <div className="d-flex flex-column gap-4">
                         {filteredProviders.map(provider => {
                             const profile = provider.providerprofile;
-                            const services = profile?.services || [];
+                            const services = (profile?.services || []).filter(s => s.visible !== false);
 
                             const mainProfession = services[0]?.title || profile?.bio || "Profesional independiente";
                             const hasImage = provider.profile_image && !provider.profile_image.includes("ui-avatars");

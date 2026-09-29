@@ -36,6 +36,8 @@ class User(db.Model):
         String(120),
         nullable=True
     )
+    dni: Mapped[str] = mapped_column(String(20), nullable=True)
+    verification_code: Mapped[str] = mapped_column(String(6), nullable=True)
 
     followers: Mapped[list["User"]] = relationship(
         secondary=followers_association,
@@ -70,6 +72,8 @@ class User(db.Model):
             "is_provider": self.is_provider,
             "is_active": self.is_active,
             "date_created": self.date_created.isoformat(),
+            "dni": self.dni,
+            "verified": self.providerprofile.verified if self.providerprofile else False,
             "followers_count": len(self.followers),
             "following_count": len(self.following),
             "roles": [r.role for r in self.roles],
@@ -114,6 +118,7 @@ class ProviderProfile(db.Model):
     bio: Mapped[str] = mapped_column(Text, nullable=True)
     description: Mapped[str] = mapped_column(Text, nullable=True)
     coverage_area: Mapped[str] = mapped_column(String(255), nullable=True)
+    role: Mapped[str] = mapped_column(String(50), nullable=True)
     is_home_service: Mapped[bool] = mapped_column(Boolean, default=False)
     start_time = db.Column(db.String(10), default="09:00")
     end_time = db.Column(db.String(10), default="18:00")
@@ -143,7 +148,8 @@ class ProviderProfile(db.Model):
                         "comment": cita.review.comment,
                         "date": cita.review.created_at.strftime("%d/%m/%Y") if cita.review.created_at else "",
                         "client_name": cita.client.name if cita.client else "Cliente",
-                        "service_title": servicio.title
+                        "service_title": servicio.title,
+                        "media": [m.serialize() for m in cita.review.media] if cita.review.media else []
                     })
 
         # 2. Consultamos los días de disponibilidad en la base de datos
@@ -172,7 +178,8 @@ class ProviderProfile(db.Model):
     def serialize_basic(self):
         return {
             "id": self.id,
-            "role": [r.role for r in self.user.roles] if self.user and self.user.roles else []
+            "role": [r.role for r in self.user.roles] if self.user and self.user.roles else [],
+            "image": self.user.profile_image if self.user else None
         }
 
 
@@ -253,6 +260,7 @@ class Service(db.Model):
     
     estimated_duration: Mapped[int] = mapped_column(Integer, nullable=True)
     visible: Mapped[bool] = mapped_column(Boolean, default=True)
+    featured: Mapped[bool] = mapped_column(Boolean, default=False)
 
     provider: Mapped["ProviderProfile"] = relationship(back_populates="services")
     subcategory: Mapped["Subcategory"] = relationship(back_populates="services")
@@ -270,6 +278,7 @@ class Service(db.Model):
             "price_type": self.price_type, # <-- Añadido
             "estimated_duration": self.estimated_duration,
             "visible": self.visible,
+            "featured": self.featured,
             "media": [m.serialize() for m in self.media],
             "reviews_data": self.get_reviews_summary()
         }

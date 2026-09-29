@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AddReview } from './AddReview';
 
 export const ClientAgendaModal = ({
     show,
@@ -7,11 +8,17 @@ export const ClientAgendaModal = ({
     clientAppointments = [],
     providerAppointments = [],
     onUpdateAppointment,
-    onCancelAppointment
+    onCancelAppointment,
+    onCompleteAppointment,
+    onSubmitReview
 }) => {
     const [activeTab, setActiveTab] = useState("client");
     const [editingId, setEditingId] = useState(null);
     const [newDateTime, setNewDateTime] = useState("");
+
+    // Estados para el modal de reseña
+    const [showAddReview, setShowAddReview] = useState(false);
+    const [appointmentToReview, setAppointmentToReview] = useState(null);
 
     useEffect(() => {
         if (show) {
@@ -45,6 +52,25 @@ export const ClientAgendaModal = ({
             setNewDateTime("");
         }
     };
+
+    const handleCompleteClick = (app) => {
+        if (window.confirm("¿Confirmas que este servicio se ha realizado y deseas marcarlo como completado?")) {
+            setAppointmentToReview(app);
+            setShowAddReview(true);
+        }
+    };
+
+    // En ClientAgendaModal.jsx
+
+const handleReviewSubmit = async (formData) => {
+    if (onSubmitReview) {
+        await onSubmitReview(formData, appointmentToReview);
+    } else if (onCompleteAppointment) {
+        await onCompleteAppointment(appointmentToReview?.id, formData);
+    }
+    setShowAddReview(false);
+    setAppointmentToReview(null);
+};
 
     return (
         <>
@@ -129,7 +155,16 @@ export const ClientAgendaModal = ({
                                             </div>
 
                                             {editingId !== app.id && (
-                                                <div className="d-flex gap-2">
+                                                <div className="d-flex gap-2 flex-wrap">
+                                                    {/* Botón para marcar como completado (solo visible en la pestaña de Cliente) */}
+                                                    {activeTab === "client" && (
+                                                        <button
+                                                            className="btn btn-sm btn-outline-success rounded-pill px-3 fw-semibold"
+                                                            onClick={() => handleCompleteClick(app)}
+                                                        >
+                                                            <i className="bi bi-check-circle me-1"></i> Completar
+                                                        </button>
+                                                    )}
                                                     <button
                                                         className="btn btn-sm btn-outline-primary rounded-pill px-3 fw-semibold"
                                                         onClick={() => handleStartEdit(app)}
@@ -164,6 +199,17 @@ export const ClientAgendaModal = ({
                     </div>
                 </div>
             </div>
+
+            {/* Modal para crear reseña */}
+            <AddReview
+                show={showAddReview}
+                appointment={appointmentToReview}
+                onClose={() => {
+                    setShowAddReview(false);
+                    setAppointmentToReview(null);
+                }}
+                onSubmitReview={handleReviewSubmit}
+            />
         </>
     );
 };

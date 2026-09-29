@@ -51,27 +51,28 @@ export const searchProviders = async (query = "", location = "", subcategoryId =
   return await response.json();
 };
 
-export const createReview = async (appointmentId, rating, comment) => {
-    const token = localStorage.getItem("token");
+export const createReview = async (formData, appointmentIdParam = null) => {
+    const token = sessionStorage.getItem("token") || localStorage.getItem("token");
+    const appointmentId = appointmentIdParam || formData.get("appointment_id");
 
-    try {
-        const response = await fetch(`${BACKEND_URL}/api/appointments/${appointmentId}/reviews`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${token}`
-            },
-            body: JSON.stringify({ rating, comment })
-        });
-        
-        const data = await response.json();
-        if (response.ok) {
-            console.log("Reseña enviada:", data.message);
-            return data;
-        }
-    } catch (error) {
-        console.error("Error al enviar reseña:", error);
+    if (!appointmentId) {
+        throw new Error("Falta el ID de la cita (appointment_id)");
     }
+
+    const response = await fetch(`${import.meta.env.VITE_BACKEND_URL}/api/appointments/${appointmentId}/reviews`, {
+        method: "POST",
+        headers: {
+            // IMPORTANTE: NO pongas 'Content-Type' aquí al usar FormData
+            "Authorization": `Bearer ${token}`
+        },
+        body: formData
+    });
+
+    const data = await response.json();
+    if (!response.ok) {
+        throw new Error(data.error || "Error al guardar la reseña");
+    }
+    return data;
 };
 
 // servicio para registrar usuario

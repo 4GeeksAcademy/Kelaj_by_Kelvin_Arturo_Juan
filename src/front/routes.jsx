@@ -18,6 +18,10 @@ import { BecomeProvider } from "./pages/BecomeProvider";
 import ProfessionalDashboard from "./pages/ProfessionalDashboard";
 import { Settings } from "./pages/Settings";
 import { ProvidersCatalog } from "./pages/ProvidersCatalog";
+import { Results } from "./pages/Results";
+import { AdminFeatured } from "./pages/AdminFeatured";
+import { Providers } from "./pages/Providers";
+import { VerificationPage } from "./components/VerificationPage";
 import ClientDashboard from "./pages/ClientDashboard";
 import { Chat } from "./pages/Chat";
 
@@ -53,6 +57,11 @@ export const router = createBrowserRouter(
         <Route path="/client-panel" element={<ClientDashboard />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
+
+        <Route path="/results" element={<Results />} />
+        <Route path="/admin/featured" element={<AdminFeatured />} />
+        <Route path="/providers" element={<Providers />} />
+        <Route path="/verificacion" element={<VerificationPage />} />
 
     </Route>
   )

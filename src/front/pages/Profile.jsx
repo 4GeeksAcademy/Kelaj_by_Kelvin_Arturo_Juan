@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { toggleFollow, getProfile, getFollowing, deleteGalleryMedia, getClientAppointments, getProviderAppointments, updateAppointment, cancelAppointment } from '../services/userServices';
+import { toggleFollow, getProfile, getFollowing, deleteGalleryMedia, createReview, getClientAppointments, getProviderAppointments, updateAppointment, cancelAppointment } from '../services/userServices';
 import { ClientAgendaModal } from '../components/UserComponents/ClientAgendaModal';
 import "../styles/profileView.css"
+import { VerifiedBadge } from "../components/VerifiedBadge";
 
 import { AddMediaModal } from '../components/UserComponents/AddMediaModal';
 import { ViewMediaModal } from '../components/UserComponents/ViewMediaModal';
 import { EditScheduleModal } from '../components/UserComponents/EditScheduleModal';
 import { AddServiceModal } from '../components/UserComponents/AddServiceModal';
+import { AddReview } from '../components/UserComponents/AddReview';
 
 const StarRating = ({ rating, reviewsCount }) => {
     const numericRating = Number(rating) || 0;
@@ -46,6 +48,8 @@ export const Profile = () => {
     const [showEditSchedule, setShowEditSchedule] = useState(false);
     const [editPostData, setEditPostData] = useState(null);
     const [showAddService, setShowAddService] = useState(false);
+    const [showAddReview, setShowAddReview] = useState(false);
+    const [appointmentToReview, setAppointmentToReview] = useState(null);
 
     // =================================================================
     // NUEVA FUNCIÓN REUTILIZABLE: Carga los datos silenciosamente
@@ -73,7 +77,6 @@ export const Profile = () => {
 
                 if (storedUser) {
                     setIsOwnProfile(storedUser.id === parseInt(targetId));
-                    // ¡Adiós a getFollowing! Ya no consultamos listas innecesarias.
                 }
             }
         } catch (error) {
@@ -81,6 +84,28 @@ export const Profile = () => {
         } finally {
             if (isInitialLoad) setLoading(false);
         }
+    };
+
+    // Justo debajo de useEffect(() => { fetchProfileData(true); }, [theId]); agrega:
+
+    const handleCompleteAppointment = (appointment) => {
+        setAppointmentToReview(appointment);
+        setShowAddReview(true);
+    };
+
+    const handleReviewSubmit = async (formData, appointment) => {
+        const targetAppointment = appointment || appointmentToReview;
+        const appId = targetAppointment?.id || formData.get("appointment_id");
+
+        // 1. Guarda la reseña (el backend ya cambia el status de la cita a 'completed')
+        await createReview(formData, appId);
+
+        // 2. IMPORTANTE: NO llames a cancelAppointment(appId) aquí,
+        // porque borrarías la cita de la base de datos junto con tu reseña.
+
+        // 3. Recarga las citas de la agenda y los datos del perfil silenciosamente
+        await loadAllAppointments();
+        await fetchProfileData(false);
     };
 
     const loadAllAppointments = async () => {
@@ -99,8 +124,7 @@ export const Profile = () => {
 
     const handleOpenAgenda = async () => {
         setShowClientAgenda(true);
-        const appointments = await getClientAppointments();
-        setClientAppointments(appointments);
+        await loadAllAppointments();
     };
 
     const handleFollowClick = async () => {
@@ -136,6 +160,7 @@ export const Profile = () => {
         { id: 4, label: "Jue" }, { id: 5, label: "Vie" }, { id: 6, label: "Sáb" }, { id: 7, label: "Dom" }
     ];
 
+
     return (
         <div className="min-vh-100 pb-5">
             <div
@@ -157,8 +182,7 @@ export const Profile = () => {
                                     <><i className={`bi ${isFollowing ? 'bi-person-check' : 'bi-person-plus'}`}></i> {isFollowing ? 'Siguiendo' : 'Seguir'}</>
                                 )}
                             </button>
-                        ) : <div>
-                        </div>}
+                        ) : <div></div>}
 
                         {isOwnProfile && (
                             <Link to="/settings" className="btn btn-sm bg-white text-dark border rounded-circle shadow-sm d-flex align-items-center justify-content-center settings-btn">
@@ -167,19 +191,23 @@ export const Profile = () => {
                         )}
                     </div>
 
-                    <div className="position-relative d-inline-block mx-auto mb-2 avatar-container">
-                        {hasImage ? (
-                            <img src={user.profile_image} alt={user.name} className="rounded-circle border border-4 border-white shadow-sm object-fit-cover avatar-img" />
-                        ) : (
-                            <div className="rounded-circle border border-4 border-white shadow-sm d-flex align-items-center justify-content-center bg-secondary text-white fw-bold avatar-placeholder">
-                                {(user.name || "U").charAt(0)}{(user.last_name || "").charAt(0)}
-                            </div>
-                        )}
-                        <span className="position-absolute bottom-0 end-0 p-2 bg-success border border-3 border-white rounded-circle status-indicator"></span>
+                    <div className="d-flex flex-column align-items-center w-100">
+                        <div className="position-relative d-inline-block mx-auto mb-2 avatar-container">
+                            {hasImage ? (
+                                <img src={user.profile_image} alt={user.name} className="rounded-circle border border-4 border-white shadow-sm object-fit-cover avatar-img" />
+                            ) : (
+                                <div className="rounded-circle border border-4 border-white shadow-sm d-flex align-items-center justify-content-center bg-secondary text-white fw-bold avatar-placeholder">
+                                    {(user.name || "U").charAt(0)}{(user.last_name || "").charAt(0)}
+                                </div>
+                            )}
+                            <span className="position-absolute bottom-0 end-0 p-2 bg-success border border-3 border-white rounded-circle status-indicator"></span>
+                        </div>
+
+                        <h3 className="fw-bold mb-1 d-flex justify-content-center align-items-center text-center gap-2 w-100">
+                            <span>{user.name} {user.last_name}</span>
+                            {user.verified && <VerifiedBadge size={22} />}
+                        </h3>
                     </div>
-
-                    <h3 className="fw-bold mb-1">{user.name} {user.last_name}</h3>
-
                     {isProvider ? (
                         <>
                             <p className="text-muted mb-2 small">{mainProfession} · {user.providerprofile.coverage_area || user.city || "España"}</p>
@@ -216,9 +244,9 @@ export const Profile = () => {
                                     </>
                                 ) : (
                                     <>
-                                        <Link to="/agenda" className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
+                                        <button onClick={handleOpenAgenda} className="btn btn-primary rounded-pill px-4 fw-semibold shadow-sm">
                                             <i className="bi bi-calendar-check me-2"></i>Agenda
-                                        </Link>
+                                        </button>
                                         <Link to="/chat" className="btn btn-success rounded-pill px-4 fw-semibold shadow-sm">
                                             <i className="bi bi-chat-left-text me-2"></i>Chats
                                         </Link>
@@ -246,9 +274,7 @@ export const Profile = () => {
                                     </div>
                                 )}
                             </div>
-
                         </div>
-
                     )}
                 </div>
 
@@ -289,7 +315,7 @@ export const Profile = () => {
 
                         <div className="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
                             <ul className="nav nav-tabs d-flex justify-content-around bg-white pt-2 border-bottom">
-                                {["servicios", "galeria", "resenas"].map(tab => (
+                                {["servicios", "galeria", "reseñas"].map(tab => (
                                     <li key={tab} className="nav-item flex-fill text-center">
                                         <button
                                             className={`nav-link w-100 border-0 fw-bold py-3 ${activeTab === tab ? "text-primary border-bottom border-primary border-2" : "text-muted"}`}
@@ -389,7 +415,7 @@ export const Profile = () => {
                                     </div>
                                 )}
 
-                                {activeTab === "resenas" && (
+                                {activeTab === "reseñas" && (
                                     <div>
                                         <h5 className="fw-bold mb-4">Reseñas de Clientes</h5>
                                         {user.providerprofile.reviews && user.providerprofile.reviews.length > 0 ? (
@@ -464,7 +490,7 @@ export const Profile = () => {
                 {!isProvider && (
                     <div className="card border-0 shadow-sm rounded-4 mb-4 overflow-hidden">
                         <ul className="nav nav-tabs d-flex justify-content-around bg-white pt-2 border-bottom">
-                            {["historial", "resenas"].map(tab => (
+                            {["historial", "reseñas"].map(tab => (
                                 <li key={tab} className="nav-item flex-fill text-center">
                                     <button
                                         className={`nav-link w-100 border-0 fw-bold py-3 ${activeTab === tab ? "text-primary border-bottom border-primary border-2" : "text-muted"}`}
@@ -490,8 +516,24 @@ export const Profile = () => {
                                                         <h6 className="fw-bold mb-1">{app.service_title}</h6>
                                                         <p className="text-muted small mb-0">Profesional: <span className="fw-semibold text-dark">{app.provider_name}</span></p>
                                                     </div>
-                                                    <div className="text-end">
+                                                    {/* En tu código de activeTab === "historial" ... */}
+                                                    <div className="text-end d-flex flex-column align-items-end gap-2">
                                                         <span className="badge bg-light text-secondary border">{app.date}</span>
+
+                                                        {isOwnProfile && !app.has_review ? (
+                                                            <button
+                                                                className="btn btn-sm btn-outline-success rounded-pill fw-semibold shadow-sm"
+                                                                onClick={() => handleCompleteAppointment(app)}
+                                                            >
+                                                                <i className="bi bi-star me-1"></i> Completar y Evaluar
+                                                            </button>
+                                                        ) : (
+                                                            app.has_review && (
+                                                                <span className="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill">
+                                                                    <i className="bi bi-check2-all me-1"></i> Evaluado
+                                                                </span>
+                                                            )
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -505,7 +547,7 @@ export const Profile = () => {
                                 </div>
                             )}
 
-                            {activeTab === "resenas" && (
+                            {activeTab === "reseñas" && (
                                 <div>
                                     <h5 className="fw-bold mb-4">Reseñas Dejadas</h5>
                                     {user.client_reviews && user.client_reviews.length > 0 ? (
@@ -544,7 +586,7 @@ export const Profile = () => {
                         onSuccess={() => {
                             setShowAddMedia(false);
                             setEditPostData(null);
-                            fetchProfileData(false); // ACTUALIZA SOLO LA DATA, SIN RECARGAR LA PÁGINA
+                            fetchProfileData(false);
                         }}
                     />
                     <EditScheduleModal
@@ -564,7 +606,7 @@ export const Profile = () => {
                 onClose={() => setShowAddService(false)}
                 onSuccess={() => {
                     setShowAddService(false);
-                    fetchProfileData(false); // Recarga silenciosa
+                    fetchProfileData(false);
                 }}
             />
 
@@ -583,12 +625,22 @@ export const Profile = () => {
                         const success = await deleteGalleryMedia(mediaId);
                         if (success) {
                             setSelectedMedia(null);
-                            fetchProfileData(false); // ACTUALIZA SOLO LA DATA, SIN RECARGAR LA PÁGINA
+                            fetchProfileData(false);
                         } else {
                             alert("No se pudo eliminar la publicación.");
                         }
                     }
                 }}
+            />
+
+            <AddReview
+                show={showAddReview}
+                appointment={appointmentToReview}
+                onClose={() => {
+                    setShowAddReview(false);
+                    setAppointmentToReview(null);
+                }}
+                onSubmitReview={handleReviewSubmit}
             />
 
             <ClientAgendaModal
@@ -612,7 +664,11 @@ export const Profile = () => {
                         }
                     }
                 }}
+                onSubmitReview={async (formData, appointment) => {
+                    await handleReviewSubmit(formData, appointment);
+                }}
             />
+
 
         </div>
     );

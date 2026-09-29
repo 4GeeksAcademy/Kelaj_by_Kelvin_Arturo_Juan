@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { getPaymentMethods, addPaymentMethod, deletePaymentMethod } from '../../services/paymentMethods';
 
 export const PaymentSettings = () => {
     const [methods, setMethods] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [showCardInput, setShowCardInput] = useState(false);
 
-    // Cargar métodos guardados al montar el componente
+    const stripeRef = useRef(null);
+    const cardElementRef = useRef(null);
+
     useEffect(() => {
         getPaymentMethods()
             .then((data) => {
@@ -15,39 +18,60 @@ export const PaymentSettings = () => {
             .finally(() => setLoading(false));
     }, []);
 
-    // Añadir tarjeta usando Stripe (siguiendo la lógica de tu compañero)
-    const handleAddCard = async () => {
+    // Montar el input de tarjeta cuando el usuario abre el formulario
+    useEffect(() => {
+        if (!showCardInput) return;
+
         const stripeKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
-        if (!stripeKey) {
-            alert("Falta configurar la clave pública de Stripe en el archivo .env");
-            return;
-        }
+        if (!stripeKey || !window.Stripe) return;
 
         const stripe = window.Stripe(stripeKey);
-        const { token, error } = await stripe.createToken();
+        const elements = stripe.elements();
+        const cardElement = elements.create("card");
+
+        stripeRef.current = stripe;
+        cardElementRef.current = cardElement;
+
+        cardElement.mount("#settings-card-element");
+
+        return () => {
+            if (cardElementRef.current) {
+                cardElementRef.current.destroy();
+                cardElementRef.current = null;
+            }
+        };
+    }, [showCardInput]);
+
+    const handleAddCard = async () => {
+        if (!stripeRef.current || !cardElementRef.current) return;
+
+        const { paymentMethod, error } = await stripeRef.current.createPaymentMethod({
+            type: "card",
+            card: cardElementRef.current,
+        });
 
         if (error) {
-            alert("Error al procesar la tarjeta");
+            alert(error.message || "Error al procesar la tarjeta");
             return;
         }
 
         try {
             const newMethod = await addPaymentMethod({
                 provider: "stripe",
-                payment_method_id: token.id, // Asegurando que coincida con lo que espera tu backend
-                brand: token.card.brand,
-                last_four_digits: token.card.last4
+                payment_method_id: paymentMethod.id,
+                brand: paymentMethod.card.brand,
+                last_four_digits: paymentMethod.card.last4
             });
 
             if (newMethod && !newMethod.error) {
                 setMethods([...methods, newMethod]);
+                setShowCardInput(false);
             }
         } catch (err) {
             console.error("Error al guardar método de pago", err);
         }
     };
 
-    // Eliminar tarjeta
     const handleDelete = async (id) => {
         try {
             await deletePaymentMethod(id);
@@ -86,12 +110,26 @@ export const PaymentSettings = () => {
                     ))
                 )}
 
-                <button
-                    className="btn btn-outline-primary w-100 mt-2 fw-semibold"
-                    onClick={handleAddCard}
-                >
-                    <i className="bi bi-plus-lg me-2"></i> Añadir nueva tarjeta
-                </button>
+                {showCardInput ? (
+                    <div className="mt-3 p-3 border rounded-3 bg-light">
+                        <div id="settings-card-element" className="bg-white p-3 rounded border mb-3"></div>
+                        <div className="d-flex gap-2">
+                            <button className="btn btn-primary btn-sm px-3" onClick={handleAddCard}>
+                                Guardar tarjeta
+                            </button>
+                            <button className="btn btn-outline-secondary btn-sm px-3" onClick={() => setShowCardInput(false)}>
+                                Cancelar
+                            </button>
+                        </div>
+                    </div>
+                ) : (
+                    <button
+                        className="btn btn-outline-primary w-100 mt-2 fw-semibold"
+                        onClick={() => setShowCardInput(true)}
+                    >
+                        <i className="bi bi-plus-lg me-2"></i> Añadir nueva tarjeta
+                    </button>
+                )}
             </div>
         </div>
     );

@@ -1,0 +1,98 @@
+/* Fondo de la página completamente transparente */
+.login-page {
+  background-color: transparent;
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Sidebar izquierdo (col-3) */
+.login-sidebar {
+  background-color: transparent;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 2rem 1.5rem;
+  min-height: 100vh;
+}
+
+.login-header {
+  margin-bottom: 1.25rem;
+}
+
+.login-title {
+  font-weight: 700;
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.login-tagline {
+  font-size: 0.875rem;
+  color: #555;
+  line-height: 1.4;
+  margin-bottom: 0;
+}
+
+/* Card de login semitransparente */
+.login-card {
+  background-color: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.06);
+}
+
+.login-form {
+  background: transparent;
+}
+
+.login-card-title {
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+/* Inputs del formulario */
+.login-input {
+  border-radius: 50rem;
+  padding: 0.5rem 1rem;
+  background-color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.login-input:focus {
+  background-color: #ffffff;
+}
+
+/* Contenedor del botón de Google */
+.login-google-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+/* Texto inferior de registro */
+.login-register-text {
+  margin-top: 1.25rem;
+  margin-bottom: 0;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+/* Contenedor de la imagen derecha (col-9) */
+.login-cover {
+  height: 100vh;
+  overflow: hidden;
+  position: relative;
+}
+
+.login-cover-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+}
