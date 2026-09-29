@@ -8,6 +8,17 @@ export default function ClientSummary({ data, setActiveSection }) {
   const followingProfessionals = data.following_professionals || [];
   const latestServices = data.latest_services || [];
 
+  const getStatusLabel = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'pending': return 'Pendiente';
+      case 'confirmed': return 'Confirmada';
+      case 'in_progress': return 'En curso';
+      case 'completed': return 'Completada';
+      case 'cancelled': return 'Cancelada';
+      default: return status || 'Próxima';
+    }
+  };
+
   return (
     <div className="summary-section">
       {/* Saludo inicial */}
@@ -79,17 +90,17 @@ export default function ClientSummary({ data, setActiveSection }) {
                 <div className="reservation-card-left">
                   <img src={res.provider_image || "https://via.placeholder.com/45"} alt="Pro" className="client-avatar-placeholder" style={{objectFit: 'cover'}} />
                   <div>
-                    <strong className="client-name">{res.provider_name}</strong>
+                    <strong className="client-name">{res.provider_name || "Profesional"}</strong>
                     <p className="service-title-text">{res.service_title}</p>
                     <div className="reservation-meta-info">
                       <span>📅 {res.date}</span>
-                      <span>⏱ {res.duration} min</span>
-                      <span>💻 {res.modality || "Online"}</span>
+                      <span>⏱ {res.duration || 60} min</span>
+                      {/* Se ha eliminado la modalidad online */}
                     </div>
                   </div>
                 </div>
                 <div className="reservation-card-right">
-                  <span className={`status-tag ${res.status}`}>• {res.status_label || "Próxima"}</span>
+                  <span className={`status-tag ${res.status}`}>• {getStatusLabel(res.status)}</span>
                   <span className="price-tag">{res.price} €</span>
                 </div>
               </div>
@@ -137,14 +148,14 @@ export default function ClientSummary({ data, setActiveSection }) {
             latestServices.map(serv => (
               <div key={serv.id} className="reservation-card-styled status-confirmed">
                 <div className="reservation-card-left">
-                  <img src={serv.provider_image} alt="" className="client-avatar-placeholder" style={{objectFit: 'cover'}} />
+                  <img src={serv.provider_image || "https://via.placeholder.com/45"} alt="" className="client-avatar-placeholder" style={{objectFit: 'cover'}} />
                   <div>
-                    <strong className="client-name">{serv.provider_name}</strong>
+                    <strong className="client-name">{serv.provider_name || "Profesional"}</strong>
                     <p className="service-title-text">{serv.service_title}</p>
                     <div className="reservation-meta-info">
                       <span>📅 {serv.date}</span>
-                      <span>⏱ {serv.duration} min</span>
-                      <span>💻 {serv.modality}</span>
+                      <span>⏱ {serv.duration || 60} min</span>
+                      {/* Se ha eliminado la modalidad online */}
                     </div>
                   </div>
                 </div>

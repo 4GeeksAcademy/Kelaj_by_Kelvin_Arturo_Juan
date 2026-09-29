@@ -13,66 +13,65 @@ import {
   addPaymentMethod,
 } from "../services/paymentMethods";
 
-// ============================
-// COMPONENTES EXTRAÍDOS (FUERA DE CHECKOUT)
-// ============================
 const CheckIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
     <polyline points="20 6 9 17 4 12" />
   </svg>
 );
 
-const CheckoutContainer = ({ children, step }) => (
-  <div className="container py-4">
-    <div className="row justify-content-center">
-      <div className="col-md-6 col-lg-5">
-        <div className="checkout-card bg-light bg-opacity-50">
-          <div className="checkout-steps mb-4">
-            <div className={`step-item ${step >= 1 ? "active" : ""}`}>
-              <div className="circle">
-                {step > 1 ? <CheckIcon /> : "1"}
-              </div>
-              <span className={step === 1 ? "current" : ""}>Servicio</span>
-            </div>
+const CheckoutContainer = ({ children, step, setStep, maxReachedStep, hideSteps = false }) => {
+  const stepsList = [
+    { num: 1, label: "Servicio" },
+    { num: 2, label: "Fecha y hora" },
+    { num: 3, label: "Datos" },
+    { num: 4, label: "Confirmación" }
+  ];
 
-            <div className={`step-item ${step >= 2 ? "active" : ""}`}>
-              <div className="circle">
-                {step > 2 ? <CheckIcon /> : "2"}
+  return (
+    <div className="container py-4">
+      <div className="row justify-content-center">
+        <div className="col-md-6 col-lg-5">
+          <div className="checkout-card">
+            {!hideSteps && (
+              <div className="checkout-steps mb-4">
+                {stepsList.map((s) => {
+                  const isCompleted = step > s.num || s.num <= maxReachedStep;
+                  const isActive = step === s.num;
+                  
+                  return (
+                    <div 
+                      key={s.num} 
+                      className={`step-item ${isActive ? "active" : ""} ${isCompleted ? "completed" : ""} ${s.num < step ? "clickable" : ""}`}
+                      onClick={() => {
+                        if (s.num < step || s.num <= maxReachedStep) {
+                          setStep(s.num);
+                        }
+                      }}
+                    >
+                      <div className="circle">
+                        {step > s.num || (s.num < step && isCompleted) ? <CheckIcon /> : s.num}
+                      </div>
+                      <span className={isActive ? "current" : ""}>{s.label}</span>
+                    </div>
+                  );
+                })}
               </div>
-              <span className={step === 2 ? "current" : ""}>Fecha y hora</span>
-            </div>
+            )}
 
-            <div className={`step-item ${step >= 3 ? "active" : ""}`}>
-              <div className="circle">
-                {step > 3 ? <CheckIcon /> : "3"}
-              </div>
-              <span className={step === 3 ? "current" : ""}>Datos</span>
-            </div>
-
-            <div className={`step-item ${step >= 4 ? "active" : ""}`}>
-              <div className="circle">
-                {step > 4 ? <CheckIcon /> : "4"}
-              </div>
-              <span className={step === 4 ? "current" : ""}>Confirmación</span>
-            </div>
+            {children}
           </div>
-
-          {children}
         </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
-// ============================
-// COMPONENTE PRINCIPAL
-// ============================
 export default function Checkout() {
   const [step, setStep] = useState(1);
+  const [maxReachedStep, setMaxReachedStep] = useState(1);
   const [service, setService] = useState(null);
   const [availabilityList, setAvailabilityList] = useState([]);
   
-  // Nuevos estados para el calendario y la hora
   const [selectedDate, setSelectedDate] = useState(""); 
   const [selectedSlot, setSelectedSlot] = useState(null);
   
@@ -90,15 +89,21 @@ export default function Checkout() {
   const [searchParams] = useSearchParams();
   const serviceId = searchParams.get("serviceId");
 
+  const changeStep = (newStep) => {
+    setStep(newStep);
+    if (newStep > maxReachedStep) {
+      setMaxReachedStep(newStep);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return; 
-
     getPaymentMethods().then(setPaymentMethods);
   }, []);
 
   useEffect(() => {
-    const loggedUser = JSON.parse(localStorage.getItem("user"));
+    const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
     if (loggedUser) {
       setClientData({
         name: loggedUser.name || "",
@@ -116,20 +121,22 @@ export default function Checkout() {
     if (step !== 6 || selectedPaymentMethod) return;
 
     const publicKey = import.meta.env.VITE_STRIPE_PUBLIC_KEY;
-
-    if (!publicKey) {
-      console.error("Falta VITE_STRIPE_PUBLIC_KEY en el archivo .env");
-      return;
-    }
-
-    if (!window.Stripe) {
-      console.error("Stripe.js no está cargado");
-      return;
-    }
+    if (!publicKey || !window.Stripe) return;
 
     const stripe = window.Stripe(publicKey);
     const elements = stripe.elements();
-    const cardElement = elements.create("card");
+    
+    const cardElement = elements.create("card", {
+      hidePostalCode: true,
+      style: {
+        base: {
+          fontSize: '15px',
+          color: '#32325d',
+          fontFamily: '"Inter", sans-serif',
+          '::placeholder': { color: '#aab7c4' },
+        },
+      },
+    });
 
     stripeRef.current = stripe;
     elementsRef.current = elements;
@@ -149,7 +156,7 @@ export default function Checkout() {
     <div className="container py-4">
       <div className="row justify-content-center">
         <div className="col-md-6 col-lg-5">
-          <div className="checkout-card">
+          <div className="checkout-card bg-white">
             <div className="skeleton skeleton-title mb-3"></div>
             <div className="skeleton skeleton-text mb-2"></div>
             <div className="skeleton skeleton-text mb-2"></div>
@@ -170,25 +177,19 @@ export default function Checkout() {
     }
 
     const date_time = `${selectedSlot.date}T${selectedSlot.start_time}:00`;
-
-    const data = {
-      service_id: service.id,
-      date_time: date_time
-    };
+    const data = { service_id: service.id, date_time: date_time };
 
     const res = await createAppointment(data);
-
     if (!res || !res.appointment) {
       alert("No se pudo crear la cita");
       return;
     }
 
     setAppointmentId(res.appointment.id);
-
     if (paymentMethods.length === 0) {
-      setStep(6);
+      changeStep(6);
     } else {
-      setStep(5);
+      changeStep(5);
     }
   };
 
@@ -198,19 +199,16 @@ export default function Checkout() {
       amount: total,
       payment_method_id: selectedPaymentMethod.id
     });
-
-    setTransactionId(res.transaction_id);
-    setStep(7);
+    if (res && res.transaction_id) {
+      setTransactionId(res.transaction_id);
+      changeStep(7);
+    }
   };
 
   const handleTransaction = async () => {
     const stripe = stripeRef.current;
     const cardElement = cardElementRef.current;
-
-    if (!stripe || !cardElement) {
-      alert("El formulario de tarjeta no está disponible");
-      return;
-    }
+    if (!stripe || !cardElement) return;
 
     const { paymentMethod, error } = await stripe.createPaymentMethod({
       type: "card",
@@ -248,25 +246,29 @@ export default function Checkout() {
     }
 
     setTransactionId(res.transaction_id);
-    setStep(7);
+    changeStep(7);
   };
 
-  // ============================
-  // RENDER DE PASOS
-  // ============================
+  const handleStep3Submit = () => {
+    if (!clientData.name.trim() || !clientData.email.trim() || !clientData.phone.trim()) {
+      alert("Por favor, completa todos los campos (Nombre, Email y Teléfono) para continuar.");
+      return;
+    }
+    changeStep(4);
+  };
 
   if (step === 1)
     return (
-      <CheckoutContainer step={step}>
+      <CheckoutContainer step={step} setStep={changeStep} maxReachedStep={maxReachedStep}>
         <h2 className="checkout-title">{service.title}</h2>
-        <p>{service.description}</p>
-        <p className="fw-bold">Precio base: {service.price} €</p>
+        <p className="text-muted">{service.description}</p>
+        <p className="fw-bold fs-5 mb-4">Precio base: {service.price} €</p>
 
         <button
-          className="checkout-btn checkout-btn-primary w-100 mt-3"
+          className="checkout-btn checkout-btn-primary w-100 rounded-pill shadow-sm"
           onClick={() => {
             getAvailability(service.id).then(setAvailabilityList);
-            setStep(2);
+            changeStep(2);
           }}
         >
           Seleccionar fecha
@@ -275,13 +277,11 @@ export default function Checkout() {
     );
 
   if (step === 2) {
-    // Filtramos la lista de horas basándonos en el día elegido en el calendario
     const availableSlotsForDate = availabilityList.filter(slot => slot.date === selectedDate);
-    // Calculamos el día de hoy para que el calendario no permita elegir fechas en el pasado
     const today = new Date().toISOString().split("T")[0];
 
     return (
-      <CheckoutContainer step={step}>
+      <CheckoutContainer step={step} setStep={changeStep} maxReachedStep={maxReachedStep}>
         <h2 className="checkout-title mb-4">Selecciona fecha y hora</h2>
 
         <div className="mb-4">
@@ -311,7 +311,7 @@ export default function Checkout() {
                             className="btn btn-outline-primary fw-semibold px-4 py-2 rounded-pill shadow-sm"
                             onClick={() => {
                                 setSelectedSlot(slot);
-                                setStep(3);
+                                changeStep(3);
                             }}
                         >
                             {slot.start_time}
@@ -330,33 +330,48 @@ export default function Checkout() {
 
   if (step === 3)
     return (
-      <CheckoutContainer step={step}>
+      <CheckoutContainer step={step} setStep={changeStep} maxReachedStep={maxReachedStep}>
         <h2 className="checkout-title">Tus datos</h2>
+        <p className="text-muted small mb-3">Todos los campos son obligatorios para continuar.</p>
 
-        <input
-          className="checkout-input form-control mb-2"
-          placeholder="Nombre"
-          value={clientData.name}
-          onChange={e => setClientData({ ...clientData, name: e.target.value })}
-        />
+        <div className="mb-3">
+          <label className="form-label small fw-semibold text-muted">Nombre completo</label>
+          <input
+            className="checkout-input form-control"
+            placeholder="Introduce tu nombre"
+            value={clientData.name}
+            onChange={e => setClientData({ ...clientData, name: e.target.value })}
+            required
+          />
+        </div>
 
-        <input
-          className="checkout-input form-control mb-2"
-          placeholder="Email"
-          value={clientData.email}
-          onChange={e => setClientData({ ...clientData, email: e.target.value })}
-        />
+        <div className="mb-3">
+          <label className="form-label small fw-semibold text-muted">Correo electrónico</label>
+          <input
+            type="email"
+            className="checkout-input form-control"
+            placeholder="tucorreo@email.com"
+            value={clientData.email}
+            onChange={e => setClientData({ ...clientData, email: e.target.value })}
+            required
+          />
+        </div>
 
-        <input
-          className="checkout-input form-control mb-3"
-          placeholder="Teléfono"
-          value={clientData.phone}
-          onChange={e => setClientData({ ...clientData, phone: e.target.value })}
-        />
+        <div className="mb-4">
+          <label className="form-label small fw-semibold text-muted">Teléfono de contacto</label>
+          <input
+            type="tel"
+            className="checkout-input form-control"
+            placeholder="+34 600 000 000"
+            value={clientData.phone}
+            onChange={e => setClientData({ ...clientData, phone: e.target.value })}
+            required
+          />
+        </div>
 
         <button
-          className="checkout-btn checkout-btn-primary w-100"
-          onClick={() => setStep(4)}
+          className="checkout-btn checkout-btn-primary w-100 rounded-pill shadow-sm"
+          onClick={handleStep3Submit}
         >
           Continuar
         </button>
@@ -365,7 +380,7 @@ export default function Checkout() {
 
   if (step === 4)
     return (
-      <CheckoutContainer step={step}>
+      <CheckoutContainer step={step} setStep={changeStep} maxReachedStep={maxReachedStep}>
         <h2 className="checkout-title">Confirmación</h2>
 
         <div className="bg-light p-3 rounded-3 mb-4 shadow-sm border">
@@ -379,16 +394,16 @@ export default function Checkout() {
             <span>{service.price} €</span>
         </div>
         <div className="d-flex justify-content-between mb-3 text-muted">
-            <span>Comisión Kelaj (5%):</span>
+            <span>Gastos de gestión:</span>
             <span>{commission.toFixed(2)} €</span>
         </div>
-        <div className="d-flex justify-content-between fw-bold fs-5 border-top pt-3 mb-4">
+        <div className="d-flex justify-content-between fw-bold fs-5 border-top pt-3 mb-4 text-dark">
             <span>Total:</span>
             <span>{total.toFixed(2)} €</span>
         </div>
 
         <button
-          className="checkout-btn checkout-btn-success w-100 mt-3"
+          className="checkout-btn checkout-btn-success w-100 rounded-pill shadow-sm mt-2"
           onClick={handleAppointment}
         >
           Ir al pago
@@ -398,27 +413,28 @@ export default function Checkout() {
 
   if (step === 5)
     return (
-      <CheckoutContainer step={step}>
+      <CheckoutContainer step={step} setStep={changeStep} maxReachedStep={maxReachedStep}>
         <h2 className="checkout-title">Método de pago</h2>
 
         {paymentMethods.length > 0 && (
           <>
-            <h5 className="mb-3">Tus tarjetas guardadas</h5>
+            <h5 className="mb-3 text-muted fs-6 uppercase">Tus tarjetas guardadas</h5>
             {paymentMethods.map(pm => (
               <button
                 key={pm.id}
-                className="slot-btn w-100 mb-2"
+                className="slot-btn w-100 mb-2 fw-semibold d-flex justify-content-between align-items-center px-4"
                 onClick={() => {
                   setSelectedPaymentMethod(pm);
-                  setStep(6); 
+                  changeStep(6); 
                 }}
               >
-                {pm.brand.toUpperCase()} •••• {pm.last_four_digits}
+                <span>{pm.brand.toUpperCase()} •••• {pm.last_four_digits}</span>
+                <i className="bi bi-chevron-right"></i>
               </button>
             ))}
             <button
-              className="checkout-btn checkout-btn-primary w-100 mt-3"
-              onClick={() => setStep(6)}
+              className="checkout-btn checkout-btn-primary w-100 rounded-pill mt-3 shadow-sm"
+              onClick={() => changeStep(6)}
             >
               Usar otra tarjeta
             </button>
@@ -427,10 +443,10 @@ export default function Checkout() {
 
         {paymentMethods.length === 0 && (
           <>
-            <p>No tienes tarjetas guardadas.</p>
+            <p className="text-muted">No tienes tarjetas guardadas.</p>
             <button
-              className="checkout-btn checkout-btn-primary w-100 mt-3"
-              onClick={() => setStep(6)}
+              className="checkout-btn checkout-btn-primary w-100 rounded-pill mt-3 shadow-sm"
+              onClick={() => changeStep(6)}
             >
               Añadir tarjeta y pagar
             </button>
@@ -441,41 +457,47 @@ export default function Checkout() {
 
   if (step === 6)
     return (
-      <CheckoutContainer step={step}>
+      <CheckoutContainer step={step} setStep={changeStep} maxReachedStep={maxReachedStep}>
         <h2 className="checkout-title">Pago seguro</h2>
 
         {selectedPaymentMethod && (
           <>
-            <p>Pagando con:</p>
-            <p className="fw-bold">
+            <p className="text-muted">Pagando con tarjeta guardada:</p>
+            <p className="fw-bold mb-4">
               {selectedPaymentMethod.brand.toUpperCase()} •••• {selectedPaymentMethod.last_four_digits}
             </p>
             <button
-              className="checkout-btn checkout-btn-success w-100 mt-4"
+              className="checkout-btn checkout-btn-success w-100 rounded-pill shadow-sm"
               onClick={handleTransactionWithSavedCard}
             >
-              Pagar ahora
+              Pagar ahora ({total.toFixed(2)} €)
             </button>
           </>
         )}
 
         {!selectedPaymentMethod && (
           <>
-            <div id="card-element" className="stripe-card-element bg-light p-3 rounded border mb-3"></div>
-            <label className="d-flex align-items-center text-muted small">
+            <div className="stripe-card-container mb-3">
+              <label className="form-label small fw-semibold text-muted mb-2">Detalles de la tarjeta</label>
+              <div id="card-element"></div>
+            </div>
+
+            <label className="d-flex align-items-center text-muted small mb-4" style={{ cursor: 'pointer' }}>
               <input
                 type="checkbox"
                 checked={saveCard}
                 onChange={() => setSaveCard(!saveCard)}
-                className="me-2"
+                className="me-2 form-check-input"
+                style={{ width: '18px', height: '18px' }}
               />
               Guardar tarjeta de forma segura para futuras compras
             </label>
+
             <button
-              className="checkout-btn checkout-btn-success w-100 mt-4"
+              className="checkout-btn checkout-btn-success w-100 rounded-pill shadow-sm"
               onClick={handleTransaction}
             >
-              Pagar ahora
+              Pagar ahora ({total.toFixed(2)} €)
             </button>
           </>
         )}
@@ -484,16 +506,16 @@ export default function Checkout() {
 
   if (step === 7)
     return (
-      <CheckoutContainer step={step}>
-        <div className="text-center">
+      <CheckoutContainer step={step} setStep={changeStep} maxReachedStep={maxReachedStep} hideSteps={true}>
+        <div className="text-center py-3">
             <i className="bi bi-check-circle-fill text-success" style={{ fontSize: "4rem" }}></i>
             <h2 className="checkout-title text-success mt-3">¡Reserva confirmada!</h2>
-            <p className="text-muted mb-4">Tu pago ha sido procesado correctamente y el profesional ha sido notificado.</p>
+            <p className="text-muted mb-4">Tu pago se ha procesado correctamente y el profesional ha sido notificado.</p>
             <button
-            className="checkout-btn checkout-btn-primary w-100 rounded-pill"
-            onClick={() => window.location.href = "/"}
+              className="checkout-btn checkout-btn-primary w-100 rounded-pill shadow-sm"
+              onClick={() => window.location.href = "/"}
             >
-            Volver al inicio
+              Volver al inicio
             </button>
         </div>
       </CheckoutContainer>
