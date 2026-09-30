@@ -92,22 +92,24 @@ export function ClientSidebar({ activeSection, setActiveSection, clientData }) {
     { id: "favorites", label: "Favoritos", icon: "bi-heart", count: clientData?.favorites_count || 0 }
   ];
 
+  const localUser = JSON.parse(localStorage.getItem("user") || sessionStorage.getItem("user") || "{}");
   const userInfo = clientData?.user_info || {};
   const firstName = userInfo.name || "Usuario";
   const lastName = userInfo.last_name || "";
   const initial = firstName.charAt(0).toUpperCase();
   const city = userInfo.city || "Madrid";
-  const memberSince = userInfo.member_since || "2025";
+  const profileImage = userInfo.profile_image || localUser.profile_image;
+  const memberSince = userInfo.member_since || localUser.member_since || "";
 
   return (
     <aside className="sidebar-profile">
       <div className="profile-header text-center">
-        {userInfo.profile_image && !userInfo.profile_image.includes("ui-avatars") ? (
-          <img
-            src={userInfo.profile_image}
-            alt="Perfil"
-            className="profile-avatar-placeholder"
-            style={{ objectFit: 'cover' }}
+        {profileImage && !profileImage.includes("ui-avatars") ? (
+          <img 
+            src={profileImage} 
+            alt="Perfil" 
+            className="profile-avatar-placeholder" 
+            style={{ objectFit: 'cover' }} 
           />
         ) : (
           <div className="profile-avatar-placeholder bg-secondary text-white fw-bold">
