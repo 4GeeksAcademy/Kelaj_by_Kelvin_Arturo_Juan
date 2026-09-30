@@ -192,11 +192,13 @@ def delete_user(user_id):
         user.followers.clear()
         user.following.clear()
         Message.query.filter(
-            db.or_(Message.sender_id == user.id, Message.receiver_id == user.id)
+            db.or_(Message.sender_id == user.id,
+                   Message.receiver_id == user.id)
         ).delete(synchronize_session=False)
 
         # Limpiar historial de citas pasadas como cliente (y sus reseñas/pagos)
-        client_appointments = Appointment.query.filter_by(client_id=user.id).all()
+        client_appointments = Appointment.query.filter_by(
+            client_id=user.id).all()
         for app in client_appointments:
             if app.review:
                 Media.query.filter_by(review_id=app.review.id).delete()
@@ -209,9 +211,11 @@ def delete_user(user_id):
         if user.providerprofile:
             provider_id = user.providerprofile.id
 
-            provider_services = Service.query.filter_by(provider_id=provider_id).all()
+            provider_services = Service.query.filter_by(
+                provider_id=provider_id).all()
             for srv in provider_services:
-                srv_appointments = Appointment.query.filter_by(service_id=srv.id).all()
+                srv_appointments = Appointment.query.filter_by(
+                    service_id=srv.id).all()
                 for app in srv_appointments:
                     if app.review:
                         Media.query.filter_by(review_id=app.review.id).delete()
@@ -247,6 +251,8 @@ def delete_user(user_id):
 # ============================
 # OBTENER LISTA DE SEGUIDOS DE UN USUARIO
 # ============================
+
+
 @api.route('/users/<int:user_id>/following', methods=['GET'])
 def get_user_following(user_id):
     user = User.query.get(user_id)
@@ -374,6 +380,8 @@ def get_service_availability(service_id):
 # ============================
 # CREAR CITA (CON PROTECCIÓN DE CONDICIÓN DE CARRERA)
 # ============================
+
+
 @api.route('/appointments', methods=['POST'])
 @jwt_required()
 def create_appointment():
@@ -801,7 +809,7 @@ def create_charge_with_saved_method():
             amount=int(float(data["amount"]) * 100),
             currency="eur",
             customer=user.stripe_customer_id,
-            payment_method=method.stripe_payment_method_id, # <-- Corregido
+            payment_method=method.stripe_payment_method_id,  # <-- Corregido
             payment_method_types=["card"],
             confirm=True
         )
@@ -920,7 +928,7 @@ def get_user_profile(user_id):
     if user.is_provider and user.providerprofile:
         serialized_profile = user.providerprofile.serialize()
         user_data["providerprofile"] = serialized_profile
-        
+
         # Calculamos el promedio general de estrellas del proveedor para su perfil
         reviews_list = serialized_profile.get("reviews", [])
         if reviews_list:
@@ -1054,7 +1062,8 @@ def create_review(appointment_id):
         # Procesamiento de archivo multimedia opcional
         file = request.files.get('media')
         if file and file.filename != '':
-            upload_result = cloudinary.uploader.upload(file, folder="kelaj_reviews")
+            upload_result = cloudinary.uploader.upload(
+                file, folder="kelaj_reviews")
             new_media = Media(
                 url=upload_result.get('secure_url'),
                 review_id=new_review.id
@@ -1231,7 +1240,7 @@ def upload_gallery_media():
 @jwt_required()
 def edit_gallery_media(post_id):
     user_id = int(get_jwt_identity())
-    
+
     post = ProviderPortfolio.query.get(post_id)
     if not post or post.provider.user_id != user_id:
         return jsonify({"error": "Publicación no encontrada o no autorizada"}), 404
@@ -1241,7 +1250,7 @@ def edit_gallery_media(post_id):
         post.title = data["title"]
     if "description" in data:
         post.description = data["description"]
-        
+
     # NUEVO: Guardamos el nuevo orden de las imágenes
     if "urls" in data:
         import json
@@ -1257,11 +1266,13 @@ def edit_gallery_media(post_id):
 # ============================
 # ELIMINAR PUBLICACIÓN DE GALERÍA
 # ============================
+
+
 @api.route('/provider/gallery/<int:post_id>', methods=['DELETE'])
 @jwt_required()
 def delete_gallery_media(post_id):
     user_id = int(get_jwt_identity())
-    
+
     post = ProviderPortfolio.query.get(post_id)
     if not post or post.provider.user_id != user_id:
         return jsonify({"error": "Publicación no encontrada o no autorizada"}), 404
@@ -1277,11 +1288,13 @@ def delete_gallery_media(post_id):
 # ============================
 # ACTUALIZAR HORARIO / DISPONIBILIDAD
 # ============================
+
+
 @api.route('/provider/schedule', methods=['PUT'])
 @jwt_required()
 def update_provider_schedule():
     user_id = int(get_jwt_identity())
-    
+
     provider = ProviderProfile.query.filter_by(user_id=user_id).first()
     if not provider:
         return jsonify({"error": "No eres proveedor"}), 403
@@ -1290,7 +1303,7 @@ def update_provider_schedule():
     days = data.get("days", [])
     start_time_str = data.get("startTime", "09:00")
     end_time_str = data.get("endTime", "18:00")
-    
+
     from datetime import datetime
 
     try:
@@ -1324,19 +1337,21 @@ def update_provider_schedule():
 # ============================
 # CREAR NUEVO SERVICIO
 # ============================
+
+
 @api.route('/provider/services', methods=['POST'])
 @jwt_required()
 def add_provider_service():
     import json
 
     user_id = int(get_jwt_identity())
-    
+
     provider = ProviderProfile.query.filter_by(user_id=user_id).first()
     if not provider:
         return jsonify({"error": "No eres proveedor"}), 403
 
     data = request.get_json()
-    
+
     if not data.get("title") or not data.get("price") or not data.get("subcategory_id"):
         return jsonify({"error": "Faltan datos obligatorios (título, precio, especialidad)"}), 400
 
@@ -1346,12 +1361,13 @@ def add_provider_service():
             subcategory_id=data.get("subcategory_id"),
             title=data.get("title"),
             # Si dejan la descripción vacía, ponemos un texto por defecto para no romper el nullable=False
-            description=data.get("description") or "Sin condiciones específicas detalladas.",
+            description=data.get(
+                "description") or "Sin condiciones específicas detalladas.",
             price=data.get("price"),
             price_type=data.get("price_type", "hourly"),
-            estimated_duration=data.get("estimated_duration") # Puede ser nulo
+            estimated_duration=data.get("estimated_duration")  # Puede ser nulo
         )
-        
+
         db.session.add(new_service)
         db.session.flush()  # Obtenemos el ID del servicio antes del commit
 
@@ -1372,7 +1388,7 @@ def add_provider_service():
                 db.session.add(notif)
 
         db.session.commit()
-        
+
         return jsonify({"message": "Servicio creado exitosamente"}), 201
 
     except Exception as e:
@@ -1383,6 +1399,8 @@ def add_provider_service():
     # ============================
 # ELIMINAR SERCICIO
 # ============================
+
+
 @api.route('/provider/services/<int:service_id>', methods=['DELETE'])
 @jwt_required()
 def delete_provider_service(service_id):
@@ -1392,7 +1410,8 @@ def delete_provider_service(service_id):
     if not provider:
         return jsonify({"error": "No eres proveedor"}), 403
 
-    service = Service.query.filter_by(id=service_id, provider_id=provider.id).first()
+    service = Service.query.filter_by(
+        id=service_id, provider_id=provider.id).first()
     if not service:
         return jsonify({"error": "Servicio no encontrado"}), 404
 
@@ -1409,7 +1428,8 @@ def delete_provider_service(service_id):
 
     # 2. SI SOLO HAY CITAS PASADAS (completadas/canceladas), LIMPIAMOS Y BORRAMOS
     try:
-        past_appointments = Appointment.query.filter_by(service_id=service.id).all()
+        past_appointments = Appointment.query.filter_by(
+            service_id=service.id).all()
         for app in past_appointments:
             if app.review:
                 Media.query.filter_by(review_id=app.review.id).delete()
@@ -1428,44 +1448,126 @@ def delete_provider_service(service_id):
         db.session.rollback()
         print(f"Error eliminando servicio: {str(e)}")
         return jsonify({"error": "Error interno al eliminar el servicio"}), 500
-    
+
 # ============================
 # PANEL CLIENTE
 # ============================
 
+
 @api.route('/client/dashboard', methods=['GET'])
 @jwt_required()
 def get_client_dashboard():
-    current_user_id = get_jwt_identity()
-    user = User.query.get(current_user_id)
-    
-    if not user:
-        return jsonify({"error": "Usuario no encontrado"}), 404
+    try:
+        current_user_id = get_jwt_identity()
+        user = User.query.get(current_user_id)
 
-    appointments = user.appointments if hasattr(user, 'appointments') else []
-    completed_services = [a for a in appointments if getattr(a, 'status', '') == 'completed']
-    active_reservations = [a for a in appointments if getattr(a, 'status', '') in ['in_progress', 'upcoming', 'confirmed', 'pending']]
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
 
-    following_list = [{
-        "id": f.id,
-        "name": f.name,
-        "last_name": f.last_name,
-        "profile_image": f.profile_image,
-        "category": f.role or "Especialista"
-    } for f in user.following] if hasattr(user, 'following') else []
+        appointments = []
+        try:
+            from api.models import Appointment
+            appointments = Appointment.query.filter_by(client_id=user.id).all()
+        except Exception:
+            appointments = getattr(user, 'appointments', [])
 
-    return jsonify({
-        "user_info": user.serialize(),
-        "kpis": {
-            "active_reservations": len(active_reservations),
-            "completed_services": len(completed_services),
-            "total_invested": len(completed_services) * 120,
-            "following_count": len(following_list)
-        },
-        "upcoming_reservations": [],
-        "following_professionals": following_list,
-        "latest_services": []
-    }), 200
+        active_reservations_list = []
+        latest_services_list = []
+        total_invested_val = 0.0
+
+        # Fecha y hora actual del servidor para comparar si el servicio ya se realizó
+        now = datetime.now()
+# Mapeo de los profesionales seguidos reales
+        following_list = []
+        if hasattr(user, 'following') and user.following:
+            for followed in user.following:
+                # Obtenemos datos del perfil de profesional si los tiene
+                prof_profile = followed.providerprofile
+                following_list.append({
+                    "id": followed.id,
+                    "name": f"{followed.name} {followed.last_name or ''}".strip(),
+                    "profile_image": followed.profile_image or "",
+                    "city": followed.city or "Madrid",
+                    "category": prof_profile.role if prof_profile and prof_profile.role else "Especialista"
+                })
+
+        for a in appointments:
+            status = getattr(a, 'status', 'pending')
+
+            # Obtenemos el servicio asociado y su precio real
+            service_obj = getattr(a, 'service', None)
+            service_title = service_obj.title if service_obj else "Servicio"
+            service_price = float(service_obj.price) if service_obj and hasattr(
+                service_obj, 'price') and service_obj.price else 0.0
+
+            # Obtenemos la fecha y hora de la cita
+            raw_date = getattr(a, 'date_time', None) or getattr(
+                a, 'date', None)
+
+            # LÓGICA DINÁMICA DE TIEMPO:
+            # Si la cita NO está cancelada y su fecha/hora ya pasó, se considera completada automáticamente
+            if raw_date and status != 'cancelled':
+                try:
+                    appointment_dt = raw_date if isinstance(
+                        raw_date, datetime) else datetime.fromisoformat(str(raw_date).replace("Z", "+00:00"))
+                    if appointment_dt < now:
+                        status = 'completed'
+                except Exception as ex:
+                    print("Error al comparar fecha de cita:", ex)
+
+            # Extracción del nombre y foto del profesional
+            prov_name = "Profesional"
+            prov_image = ""
+            if service_obj and service_obj.provider and service_obj.provider.user:
+                prov_user = service_obj.provider.user
+                prov_name = f"{prov_user.name} {prov_user.last_name or ''}".strip()
+                prov_image = prov_user.profile_image or ""
+
+            formatted_date = str(raw_date) if raw_date else "Por definir"
+
+            appointment_data = {
+                "id": getattr(a, 'id', 1),
+                "provider_name": prov_name,
+                "provider_image": prov_image,
+                "service_title": service_title,
+                "date": formatted_date,
+                "duration": getattr(a, 'duration', 60),
+                "status": status,
+                "price": service_price
+            }
+
+            # Clasificación según el estado calculado
+            if status == 'completed':
+                total_invested_val += service_price
+                latest_services_list.append(appointment_data)
+            elif status in ['in_progress', 'upcoming', 'confirmed', 'pending']:
+                active_reservations_list.append(appointment_data)
+
+            # Nota: Si el usuario deja una reseña en profile.jsx, el backend actualiza el estado a 'completed',
+            # por lo que esta lógica de tiempo y el sistema de reseñas convivirán en harmonía sin conflictos.
+
+        # Tomamos el año real desde date_created del modelo User de la base de datos
+        created_year = user.date_created.year if hasattr(
+            user, 'date_created') and user.date_created else datetime.now().year
+
+        user_data = user.serialize()
+        user_data['member_since'] = created_year
+
+        return jsonify({
+            "user_info": user_data,
+            "kpis": {
+                "active_reservations": len(active_reservations_list),
+                "completed_services": len(latest_services_list),
+                "total_invested": total_invested_val,
+                "following_count": len(user.following) if hasattr(user, 'following') else 0
+            },
+            "upcoming_reservations": active_reservations_list,
+            "following_professionals": following_list,
+            "latest_services": latest_services_list
+        }), 200
+    except Exception as e:
+        print(f"Error en get_client_dashboard: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 # ============================
 # MANEJADORES DE ERRORES GLOBALES
@@ -1484,6 +1586,8 @@ def internal_error(error):
 # ============================
 # SUBIR FOTO DE PORTADA
 # ============================
+
+
 @api.route('/users/<int:user_id>/cover_image', methods=['POST'])
 @jwt_required()
 def upload_cover_image(user_id):
@@ -1564,9 +1668,11 @@ def downgrade_provider_profile(user_id):
         from api.models import Media, ProviderSchedule
 
         # Eliminamos los servicios y sus citas pasadas (reseñas y transacciones asociadas)
-        provider_services = Service.query.filter_by(provider_id=provider_id).all()
+        provider_services = Service.query.filter_by(
+            provider_id=provider_id).all()
         for srv in provider_services:
-            srv_appointments = Appointment.query.filter_by(service_id=srv.id).all()
+            srv_appointments = Appointment.query.filter_by(
+                service_id=srv.id).all()
             for app in srv_appointments:
                 if app.review:
                     Media.query.filter_by(review_id=app.review.id).delete()
@@ -1585,7 +1691,7 @@ def downgrade_provider_profile(user_id):
 
         # Eliminamos el perfil de la tabla ProviderProfile
         db.session.delete(user.providerprofile)
-        
+
         # Le quitamos el rol de proveedor al usuario
         user.is_provider = False
         user.role = "buyer"
@@ -1678,24 +1784,26 @@ def get_messages(user_id):
     # Buscamos mensajes en ambas direcciones ordenados cronológicamente
     messages = Message.query.filter(
         db.or_(
-            db.and_(Message.sender_id == current_user_id, Message.receiver_id == user_id),
-            db.and_(Message.sender_id == user_id, Message.receiver_id == current_user_id)
+            db.and_(Message.sender_id == current_user_id,
+                    Message.receiver_id == user_id),
+            db.and_(Message.sender_id == user_id,
+                    Message.receiver_id == current_user_id)
         )
     ).order_by(Message.timestamp.asc()).all()
 
     return jsonify([msg.serialize() for msg in messages]), 200
 
-
-
-
-        # ============================
+    # ============================
 # OBTENER CITAS DEL CLIENTE
 # ============================
+
+
 @api.route('/client/appointments', methods=['GET'])
 @jwt_required()
 def get_client_appointments():
     current_user_id = int(get_jwt_identity())
-    appointments = Appointment.query.filter_by(client_id=current_user_id).order_by(Appointment.date_time.asc()).all()
+    appointments = Appointment.query.filter_by(
+        client_id=current_user_id).order_by(Appointment.date_time.asc()).all()
 
     result = []
     for app in appointments:
@@ -1704,7 +1812,8 @@ def get_client_appointments():
         if app.service and app.service.provider:
             provider_id = app.service.provider.id
             if app.service.provider.user:
-                provider_name = f"{app.service.provider.user.name} {app.service.provider.user.last_name or ''}".strip()
+                provider_name = f"{app.service.provider.user.name} {app.service.provider.user.last_name or ''}".strip(
+                )
 
         result.append({
             "id": app.id,
@@ -1742,7 +1851,8 @@ def update_appointment(appointment_id):
         return jsonify({"error": "Debes enviar la nueva fecha y hora (date_time)"}), 400
 
     try:
-        parsed_date = datetime.fromisoformat(new_date_time.replace("Z", "+00:00"))
+        parsed_date = datetime.fromisoformat(
+            new_date_time.replace("Z", "+00:00"))
     except ValueError:
         return jsonify({"error": "Formato de fecha inválido"}), 400
 
@@ -1777,8 +1887,8 @@ def cancel_or_delete_appointment(appointment_id):
 
     is_client = int(appointment.client_id) == current_user_id
     is_provider = (
-        appointment.service and 
-        appointment.service.provider and 
+        appointment.service and
+        appointment.service.provider and
         int(appointment.service.provider.user_id) == current_user_id
     )
 
@@ -1858,7 +1968,7 @@ def send_message():
         return jsonify({"error": "Error interno al enviar el mensaje"}), 500
 
 
-    # ============================
+# ============================
 # OBTENER NOTIFICACIONES DEL USUARIO
 # ============================
 @api.route('/notifications', methods=['GET'])
@@ -1878,7 +1988,8 @@ def get_notifications():
 @jwt_required()
 def mark_notification_read(notification_id):
     current_user_id = int(get_jwt_identity())
-    notif = Notification.query.filter_by(id=notification_id, user_id=current_user_id).first()
+    notif = Notification.query.filter_by(
+        id=notification_id, user_id=current_user_id).first()
     if not notif:
         return jsonify({"error": "Notificación no encontrada"}), 404
 
@@ -1894,13 +2005,16 @@ def mark_notification_read(notification_id):
 @jwt_required()
 def mark_all_notifications_read():
     current_user_id = int(get_jwt_identity())
-    Notification.query.filter_by(user_id=current_user_id, is_read=False).update({"is_read": True})
+    Notification.query.filter_by(
+        user_id=current_user_id, is_read=False).update({"is_read": True})
     db.session.commit()
     return jsonify({"message": "Todas las notificaciones marcadas como leídas"}), 200
 
 # ============================
 # OBTENER CITAS DEL PROVEEDOR
 # ============================
+
+
 @api.route('/provider/appointments', methods=['GET'])
 @jwt_required()
 def get_provider_appointments():
@@ -1915,6 +2029,74 @@ def get_provider_appointments():
     ).order_by(Appointment.date_time.asc()).all()
 
     return jsonify([app.serialize() for app in appointments]), 200
+
+# ============================
+# CANCELAR CITA Y PROCESAR REEMBOLSO
+# ============================
+
+
+@api.route('/appointments/<int:appointment_id>/cancel', methods=['PUT'])
+@jwt_required()
+def cancel_appointment_with_refund(appointment_id):
+    current_user_id = int(get_jwt_identity())
+
+    appointment = Appointment.query.get(appointment_id)
+    if not appointment:
+        return jsonify({"error": "Cita no encontrada"}), 404
+
+    # Verificar que el usuario que cancela sea el cliente de la cita o el proveedor del servicio
+    is_client = appointment.client_id == current_user_id
+    is_provider = appointment.service and appointment.service.provider and appointment.service.provider.user_id == current_user_id
+
+    if not is_client and not is_provider:
+        return jsonify({"error": "No estás autorizado para cancelar esta cita"}), 403
+
+    if appointment.status == "cancelled":
+        return jsonify({"error": "Esta cita ya se encuentra cancelada"}), 400
+
+    try:
+        refund_processed = False
+        refund_details = None
+
+        # Verificar si la cita tiene una transacción de pago asociada para reembolsar en Stripe
+        if appointment.transaction and appointment.transaction.provider_transaction_id:
+            payment_intent_id = appointment.transaction.provider_transaction_id
+
+            # Llamada oficial a la API de Stripe para emitir el reembolso del PaymentIntent
+            refund = stripe.Refund.create(
+                payment_intent=payment_intent_id,
+                reason="requested_by_customer"
+            )
+
+            refund_processed = True
+            refund_details = refund.id
+
+            # Actualizar el estado de la transacción local
+            appointment.transaction.status = "refunded"
+
+        # Cambiar el estado de la cita a cancelada
+        appointment.status = "cancelled"
+        db.session.commit()
+
+        return jsonify({
+            "message": "Cita cancelada exitosamente",
+            "refund_processed": refund_processed,
+            "stripe_refund_id": refund_details,
+            "appointment": {
+                "id": appointment.id,
+                "status": appointment.status
+            }
+        }), 200
+
+    except stripe.error.StripeError as e:
+        db.session.rollback()
+        print("Error de Stripe al reembolsar:", str(e))
+        return jsonify({"error": f"Error al procesar el reembolso en Stripe: {str(e)}"}), 400
+    except Exception as e:
+        db.session.rollback()
+        print("Error interno cancelando cita:", str(e))
+        return jsonify({"error": "Error interno al cancelar la cita"}), 500
+
 
 @api.route('/verify/start', methods=['POST'])
 @jwt_required()
@@ -1955,7 +2137,8 @@ def verify_confirm():
     if not user.verification_code or user.verification_code != code:
         return jsonify({"message": "C\u00f3digo incorrecto. Intenta de nuevo"}), 400
     if user.providerprofile is None:
-        db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+        db.session.add(ProviderProfile(user_id=user.id,
+                       verified=True, role="provider"))
     else:
         user.providerprofile.verified = True
     user.verification_code = None
@@ -1987,7 +2170,8 @@ def verify_google():
     if (user.email or "").lower() != google_email:
         return jsonify({"message": "La cuenta de Google no coincide con tu correo de Kelaj"}), 400
     if user.providerprofile is None:
-        db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+        db.session.add(ProviderProfile(user_id=user.id,
+                       verified=True, role="provider"))
     else:
         user.providerprofile.verified = True
     user.verification_code = None
@@ -2021,7 +2205,8 @@ def auth_google():
         if role not in ["buyer", "provider"]:
             role = "buyer"
         user = User(
-            name=info.get("given_name") or info.get("name") or email.split("@")[0],
+            name=info.get("given_name") or info.get(
+                "name") or email.split("@")[0],
             last_name=info.get("family_name"),
             email=email,
             password_hash=generate_password_hash(secrets.token_urlsafe(24)),
@@ -2034,12 +2219,14 @@ def auth_google():
         created = True
     if user.is_provider:
         if user.providerprofile is None:
-            db.session.add(ProviderProfile(user_id=user.id, verified=True, role="provider"))
+            db.session.add(ProviderProfile(user_id=user.id,
+                           verified=True, role="provider"))
         else:
             user.providerprofile.verified = True
         db.session.commit()
     roles = ["buyer", "provider"] if user.is_provider else ["buyer"]
-    access_token = create_access_token(identity=str(user.id), additional_claims={"roles": roles})
+    access_token = create_access_token(identity=str(
+        user.id), additional_claims={"roles": roles})
     return jsonify({
         "message": "cuenta creada con Google" if created else "login exitoso",
         "created": created,
